@@ -1,0 +1,13 @@
+# 最后 3000 题 batch04 执行提示词
+
+本文件是 configs/rubric/luna_high_3000/run_3000.txt 的 batch04 替换启动指令。完整继承原文件的业务提示词、公开来源、五字段格式、候选映射、五维独立评分、最多一次修订和全新会话复审、请求持久化、断点恢复、用量统计和安全停止规则。以下批次身份、选题、并发及归档规则覆盖原文件的相应段落。原文件末尾“仅编写提示词、不运行”的限制不适用于本批；本次已授权实际执行。
+
+run_id=rubric_luna_high_3000_batch04；dataset_id=awm-dde80a0；运行目录 runs/rubric_luna_high_3000_batch04；共享登记 runs/rubric_luna_registry。生成、修订、首审及复审均须使用实际配置 gpt-5.6-luna、reasoning_effort=high 的全新会话；没有配置证据则停止派发，不换模型。业务提示词逐字复制历史正式批次冻结的 generate.txt、judge.txt、revise.txt、execute.txt、id_rules.txt 并核对哈希。
+
+从 data/awm-dde80a0/gen_tasks.jsonl 展开的全部 10000 个 scenario:index 中，排除 rubric_luna_high_100_20261024、rubric_luna_high_1000_batch01、rubric_luna_high_2900_batch02、rubric_luna_high_3000_batch03 四个冻结 manifest 的全部题目，以及同数据集其他有效登记占位。权威登记以 events.jsonl 重放结果为准。补集必须恰好 3000 个，按字符串 task_id 排序全部冻结，不随机抽样、不替换失败题；冲突或数量不符停止。先持有 batch04 独占锁，再在共享登记锁内持久化全部占位，模型调用前冻结 manifest、原题、完整公开来源及业务提示词。已有 manifest 仅按原身份断点恢复。
+
+batch03 继续由其原会话执行。它尚未完成并释放运行锁、且没有在途或未知请求之前，batch04 四阶段共用并发上限 3；之后按原 3→6→9→12 升档规则。限流退避和熔断始终有效。batch04 使用独立 runner、队列、锁、请求身份及产物目录。已发送但结果未知的请求保留待核对，不自动重发；已完成阶段只按完全匹配的请求身份复用。所有预检离线进行，不调用模型测试接线。
+
+当 batch04 完成但 batch03 未完成时，保存本批全部结果并标明“本批完成，等待 batch03 完成最终合并”。只有两批都全部终态，且 batch03 完成自己的导出并释放运行锁后，使用新增的五批导出入口生成不可变版本目录，并最后原子发布共享 bank_manifest.json。统一 question_bank.jsonl 覆盖五批全部 10000 个原题和真实状态，accepted_rubrics.jsonl 只收录通过版；保留失败、未知、独立评分、来源和实际用量证据。核对五批互不重叠、并集 10000、通过数等于逐批实际通过数之和。历史产物只引用，不重跑、不改写原始数据集。
+
+中文报告区分冻结数、终态数、通过数、失败数、未完成数。Luna 与主调度分账，按唯一请求和响应去重；缓存输入和思考输出只是子项，不重复加总；历史与新增未知用量单列，不能填零。全部授权题目处理完并完成统一归档后停止。

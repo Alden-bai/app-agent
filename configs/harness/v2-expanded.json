@@ -1,0 +1,17 @@
+{
+  "protocol_id": "awm-single-json-v2",
+  "max_turns": 64,
+  "max_tool_calls": 64,
+  "episode_token_limit": 400000,
+  "episode_timeout": 1800,
+  "max_output_tokens": 4096,
+  "context_limit": 128000,
+  "observation_chars": 8000,
+  "max_read_chars": 4000,
+  "final_output_tokens": 2048,
+  "final_timeout": 60,
+  "context_compact_ratio": 0.75,
+  "context_recent_turns": 4,
+  "max_physical_requests": 0,
+  "max_total_tokens": 0
+}

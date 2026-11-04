@@ -1,0 +1,27 @@
+{
+  "isolation": "strict",
+  "purpose": "development",
+  "actor": "api",
+  "judge": "api",
+  "actor_api": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-6-luna",
+    "api_key_env": "OPENAI_API_KEY",
+    "reasoning_effort": "none",
+    "max_tokens_alias": false,
+    "context_limit": 128000
+  },
+  "judge_api": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-6-luna",
+    "api_key_env": "OPENAI_API_KEY",
+    "reasoning_effort": "none",
+    "max_tokens_alias": false,
+    "context_limit": 128000
+  },
+  "context_limit": 128000,
+  "max_output_tokens": 4096,
+  "safety_margin": 512,
+  "max_physical_requests": 0,
+  "max_total_tokens": 0
+}

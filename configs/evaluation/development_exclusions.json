@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "task_ids": [
+    "booking_and_reservations_2:8",
+    "booking_and_reservations_6:4",
+    "booking_platform_3:5",
+    "booking_reservations_32:1",
+    "code_hosting_2:9",
+    "collaboration_1:5",
+    "content_bookmark_management_1:4",
+    "document_contract_management_1:3",
+    "e_commerce_marketplace_10:3",
+    "fitness_tracking_2:2",
+    "form_builder_5:5",
+    "it_service_management_2:8",
+    "logistics_management_9:4",
+    "marketplace_21:7",
+    "marketplace_4:1",
+    "personal_finance_3:3",
+    "personal_information_management_1:8",
+    "travel_booking_2:6",
+    "volunteer_management_1:2",
+    "volunteer_management_3:7"
+  ],
+  "groups": [
+    {
+      "name": "judge_development20_20261103",
+      "manifest": "/home/bjx/awm-agent/runs/judge_development20_20261103/selection_manifest.json",
+      "task_ids": [
+        "document_contract_management_1:3",
+        "form_builder_5:5",
+        "marketplace_4:1",
+        "personal_information_management_1:8",
+        "content_bookmark_management_1:4",
+        "volunteer_management_3:7",
+        "fitness_tracking_2:2",
+        "travel_booking_2:6",
+        "personal_finance_3:3",
+        "collaboration_1:5",
+        "booking_reservations_32:1",
+        "booking_platform_3:5",
+        "e_commerce_marketplace_10:3",
+        "code_hosting_2:9",
+        "it_service_management_2:8",
+        "booking_and_reservations_6:4",
+        "volunteer_management_1:2",
+        "booking_and_reservations_2:8",
+        "logistics_management_9:4",
+        "marketplace_21:7"
+      ]
+    }
+  ],
+  "usage": "Future independent-test samplers must exclude task_ids. This registry does not rewrite frozen historical sampling code or results."
+}

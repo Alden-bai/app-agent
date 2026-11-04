@@ -1,0 +1,26 @@
+{
+  "purpose": "development",
+  "judge": "api",
+  "judge_protocol": "rubric_v2",
+  "judge_api": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-6-luna",
+    "api_key_env": "OPENAI_API_KEY",
+    "reasoning_effort": "none",
+    "temperature": 0,
+    "context_limit": 128000,
+    "timeout": 180
+  },
+  "judge_concurrency": 2,
+  "judge_v2": {
+    "query_seconds": 3,
+    "query_rows": 100,
+    "query_bytes": 24000,
+    "query_rounds": 6,
+    "queries_per_round": 12,
+    "query_repairs": 2,
+    "max_output_tokens": 8192
+  },
+  "max_physical_requests": 0,
+  "max_total_tokens": 0
+}

@@ -1,0 +1,20 @@
+title = "AWM publication secret scan"
+
+[extend]
+useDefault = true
+
+# This literal is the name of an environment variable, never its value.
+[[allowlists]]
+description = "DeepSeek environment variable identifier"
+condition = "AND"
+paths = ['''^scripts/rubric_qwen_deepseek_v12\.py$''']
+regexTarget = "secret"
+regexes = ['''^RUBRIC_V12_DEEPSEEK_KEY$''']
+
+# request_key() computes SHA-256 of canonical request metadata for deduplication.
+[[allowlists]]
+description = "Historical request identity SHA-256 hashes"
+condition = "AND"
+paths = ['''^configs/rubric/luna_high_3000/network_retry_20261102\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"request_key": "[a-f0-9]{64}",?\s*$''']

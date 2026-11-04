@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "paid_calls": 0,
+  "date": "2026-11-02",
+  "test_command": "PYTHONPATH=tests agent-world-model/.venv/bin/python -m unittest test_rubric_luna_production_v1 test_rubric_luna_batch03_lifecycle test_rubric_luna_resume_v2 -q",
+  "test_summary": "----------------------------------------------------------------------\nRan 28 tests in 5.217s\n\nOK",
+  "implementation_hashes": {
+    "/home/bjx/awm-agent/scripts/rubric_luna_batch03_resume_v2.py": "5e98bf426d9c3ef9950e290f24ff18b05320f74eb7d8a68a55b842ccd7993cff",
+    "/home/bjx/awm-agent/tests/test_rubric_luna_resume_v2.py": "704d4b7a3a271aa67bb049031078a27006cc21363366be7e4b15736e2ad2244d",
+    "/home/bjx/awm-agent/configs/rubric/luna_high_3000/network_retry_20261102.json": "becd1343d176bcef9f48b1fd71b8026a7b0c98b7f7636f6ea367f8b0ade17264"
+  },
+  "preflight": {
+    "terminal": 112,
+    "remaining": 2888,
+    "authorized_retries": 6,
+    "blocked": [],
+    "host_process_check_passed": true
+  },
+  "executed_batch": false
+}

@@ -1,0 +1,29 @@
+batch03 断网后的续跑入口（2026-11-02 修复）
+
+当前原3000题已有117题终态，剩余2883题。沿用原manifest，不重抽样。
+新入口：/home/bjx/awm-agent/scripts/rubric_luna_batch03_resume_v3.py
+原run_3000.txt的业务规则、Luna/high配置、完整输入和最多一次修订保持不变。
+
+仅检查，不调用模型、不修改阶段或调度状态（不传参数也默认检查）：
+/home/bjx/awm-agent/agent-world-model/.venv/bin/python /home/bjx/awm-agent/scripts/rubric_luna_batch03_resume_v3.py preflight
+
+用户以后决定续跑时执行（这条命令会真正调用模型）：
+/home/bjx/awm-agent/agent-world-model/.venv/bin/python /home/bjx/awm-agent/scripts/rubric_luna_batch03_resume_v3.py run
+
+请在能看到宿主进程的普通终端执行，入口会检查同一批次独占锁、旧进程、冻结哈希和离线验收记录。
+默认验收文件为同目录resume_v3_acceptance.json；默认重试授权为network_retry_20261102.json。
+
+用户已明确授权下次续跑重试断网留下的6个阶段，并知悉可能重复计费。
+授权严格绑定这6个旧请求及其原始文件哈希；它不适用于任何新失败或第二次重试。
+只有run才归档旧阶段至runs/rubric_luna_high_3000_batch03/interrupted_attempts/，保留原文件字节与未知用量，
+清理这次授权覆盖的旧预留，从并发3重新观察，并复用已有成功阶段。已有终态题不会重跑。
+归档用量进入progress、最终报告和统一导出；未知用量不会当作0。
+单阶段等待上限为1800秒（包括排队和启动）；超时会停止派发，等待进程清理，保留未知请求，不自动再次重试。
+新执行manifest仅在run时追加；旧冻结实现、原manifest及prompt不改写。
+
+2026-11-02第二次入口修复：新增v3版本，冻结的v1/v2文件保持不变。
+本次只做离线测试、preflight和repair，未启动剩余2883题、未新增模型调用。
+已用保存的原始会话与复审响应离线恢复1条配置元数据误判记录，旧派生记录保存在metadata_repairs下。
+模型核验要求同一thread_id、唯一会话和唯一回合记录明确匹配Luna/high；数据库字段为空时允许使用这些原始证据，明确冲突仍阻断。
+6个旧断网请求的授权仍只适用于原请求，目前其中1个尚待执行；请以启动时预检数量为准。
+如需仅离线修复已完成复审的元数据问题，可使用repair动作；该动作不会启动模型。

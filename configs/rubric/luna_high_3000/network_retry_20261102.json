@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "run_id": "rubric_luna_high_3000_batch03",
+  "manifest_sha256": "af03f55870bc7a56f6f695bf6811075092e93fe1f12b8491eae2fc947b854e26",
+  "authorization": "用户于2026-11-02明确允许下次续跑重试这6个阶段，保留旧记录和未知用量，并知悉可能重复计费；本次仅修复入口，不执行题目。",
+  "requests": [
+    {
+      "folder": "tasks/billing_and_payments_1__1/round_0/judge",
+      "request_key": "7046daaba7eb2bd72a8ce01b263da08b72e2e8f3981141a276e44c3a41a555e3",
+      "identity": {
+        "run_id": "rubric_luna_high_3000_batch03",
+        "task_id": "billing_and_payments_1:1",
+        "stage": "initial_judge",
+        "revision": 0,
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "high",
+        "input_sha256": "59962e262fb23c97d005e822c2f3da2014eb3abb4e07c0a3a83dcda415153ee8",
+        "prompt_sha256": "f83e2b3eea9f1a3182d60bee0fe24fa399ef973b6dbf8952956cf37e503f947f",
+        "execution_sha256": "b6d9665de447d1dd802d9e94cf889a5f2126f381784744c1e217e5455afe2517",
+        "fork_turns": "none"
+      },
+      "files": {
+        "events.jsonl": "440cb1903829caa94ee71a87d69ef3eec69c6ff78d444bd89259f32dc0fac629",
+        "identity.json": "3bed79169172883de9adea8e34ae2605972d53ec1baaa9d6561bb7052406c7ef",
+        "input.json": "59962e262fb23c97d005e822c2f3da2014eb3abb4e07c0a3a83dcda415153ee8",
+        "started.json": "941f5dfe8f5d8079b5e2b8c3aa586d6447c0645c30c1e03ec5735876e711f0d1",
+        "stderr.txt": "98b981e1177a0170db031ad9aca8bfd749b46ed9bf146e06c4f4299504457c9a"
+      }
+    },
+    {
+      "folder": "tasks/booking_and_scheduling_16__7/round_1/judge",
+      "request_key": "b4dfe0d97e50c68d475122bdde9e66b38e1c6d2f40439f0d94307cdaab82bf28",
+      "identity": {
+        "run_id": "rubric_luna_high_3000_batch03",
+        "task_id": "booking_and_scheduling_16:7",
+        "stage": "fresh_final_judge",
+        "revision": 1,
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "high",
+        "input_sha256": "60b29add4bd67e0f73aa7ea0d48cec9dcc54698c97c8e8c72526d019114c0847",
+        "prompt_sha256": "f83e2b3eea9f1a3182d60bee0fe24fa399ef973b6dbf8952956cf37e503f947f",
+        "execution_sha256": "b6d9665de447d1dd802d9e94cf889a5f2126f381784744c1e217e5455afe2517",
+        "fork_turns": "none"
+      },
+      "files": {
+        "events.jsonl": "5780c344326fcf411fa92e3667fc70dfc3765de7e81d3cb57fd8bbe3d83f2823",
+        "identity.json": "9c42b11c9a4857a56c736f4d5447dd1e1fe7a3d05de3267613ac654335214057",
+        "input.json": "60b29add4bd67e0f73aa7ea0d48cec9dcc54698c97c8e8c72526d019114c0847",
+        "started.json": "234b2934bc62b561bdb49f3b8a975fd1e965e4c1c560d32b5cb68dcf8d0a43e1",
+        "stderr.txt": "a9e4f2c099c43624d3af25e11dd8d4560193a8ffd2d1d56dc6c0e51b74045b07"
+      }
+    },
+    {
+      "folder": "tasks/crm_applicant_tracking_1__1/round_0/generate",
+      "request_key": "18d32a913d5e677ada797f8b7664dac8fa65747c0e395816c58dbf8ed184cb42",
+      "identity": {
+        "run_id": "rubric_luna_high_3000_batch03",
+        "task_id": "crm_applicant_tracking_1:1",
+        "stage": "initial_generation",
+        "revision": 0,
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "high",
+        "input_sha256": "2fb679a374a44f99b697259a0d9fee55114671d9fde78de67d1cde932f6481e4",
+        "prompt_sha256": "9c04170468dacb1a629bd8342506205c95c20457ff63f596af6937ce4622d2bd",
+        "execution_sha256": "b6d9665de447d1dd802d9e94cf889a5f2126f381784744c1e217e5455afe2517",
+        "fork_turns": "none"
+      },
+      "files": {
+        "events.jsonl": "1428f76bb925ba691cc2c0e33c802132b457dcba8ed9c62e4c1495ba7a4a61c6",
+        "identity.json": "53a45315bee0bcfdb2741d35f8188c20e5e0ce9ae09c3a60dda12bd2287c33d0",
+        "input.json": "2fb679a374a44f99b697259a0d9fee55114671d9fde78de67d1cde932f6481e4",
+        "started.json": "63c446b9f231d7bd5e357c6c46a96a90b384245626fde08e32bd6f07c02c3971",
+        "stderr.txt": "87f0682ddf52e1edbcb654b96946c383d242478847cb4066b8a6fdf5fa7beb24"
+      }
+    },
+    {
+      "folder": "tasks/form_workflow_and_submission_1__1/round_0/judge",
+      "request_key": "ae2dcec098403253baaf68602db0e78522620c457b617f586f6ae5005412d7a4",
+      "identity": {
+        "run_id": "rubric_luna_high_3000_batch03",
+        "task_id": "form_workflow_and_submission_1:1",
+        "stage": "initial_judge",
+        "revision": 0,
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "high",
+        "input_sha256": "e598bf5229bfb9154ff6779d9eb1dba3ffc07e054b2f26f0aaaa84f7c8a23368",
+        "prompt_sha256": "f83e2b3eea9f1a3182d60bee0fe24fa399ef973b6dbf8952956cf37e503f947f",
+        "execution_sha256": "b6d9665de447d1dd802d9e94cf889a5f2126f381784744c1e217e5455afe2517",
+        "fork_turns": "none"
+      },
+      "files": {
+        "events.jsonl": "dfbe611dde2b011e615fdb40f0a7813c456cf43196ba4b8cbb4f6804d99cc8a5",
+        "identity.json": "e6a0e9ebb71c032a98397179ee603f2b02f44bccd6b0db4520578874eaf61150",
+        "input.json": "e598bf5229bfb9154ff6779d9eb1dba3ffc07e054b2f26f0aaaa84f7c8a23368",
+        "started.json": "f8b07a06ffe89dc86141035e335154267f6645d32ae530ff6b40e3fd5cf17c20",
+        "stderr.txt": "9aef10a5bae751a12c37c6a0d68ce802ccaba660fb0ea12b7e9bb59404363591"
+      }
+    },
+    {
+      "folder": "tasks/job_board_9__3/round_0/generate",
+      "request_key": "70db2ffe7a7c3e4676043607514ede31a24ce24a4f85c8d8922d09f54552765c",
+      "identity": {
+        "run_id": "rubric_luna_high_3000_batch03",
+        "task_id": "job_board_9:3",
+        "stage": "initial_generation",
+        "revision": 0,
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "high",
+        "input_sha256": "37f5f092146b9e6f05ce50628aa0abff23fe16f081299f351e79659149a5ecb9",
+        "prompt_sha256": "9c04170468dacb1a629bd8342506205c95c20457ff63f596af6937ce4622d2bd",
+        "execution_sha256": "b6d9665de447d1dd802d9e94cf889a5f2126f381784744c1e217e5455afe2517",
+        "fork_turns": "none"
+      },
+      "files": {
+        "completed.json": "fa41dabf474f0d87b92600641077b32fcc26294ace4c82a23f2847b5c7678c77",
+        "events.jsonl": "ba609c547c0a526045c92a1803fd37d1bd14a7f284399161570b80b7e9fc6a9d",
+        "identity.json": "b3b32b330fb070d4269d371b9c6acbf4b19bcaadca2b30390d25031d94cf3801",
+        "input.json": "37f5f092146b9e6f05ce50628aa0abff23fe16f081299f351e79659149a5ecb9",
+        "started.json": "c7ab672f645dd8f92a27c15acd05e652d6dd55c1d1cee582250ad34e449e88bf",
+        "stderr.txt": "3b34f449846124692f1d3d180792e58be0b20be76ce41904c6476fcbc070f212",
+        "usage.json": "9cb4c4c62f1dcc10f08b5aac3b5f761c324ad54a47060defc06502679bb412a7"
+      }
+    },
+    {
+      "folder": "tasks/professional_networking_11__6/round_1/judge",
+      "request_key": "6a4da3e077d3608d27ec76bb3eeb642993fa3759bb79291bcb17d014961d46be",
+      "identity": {
+        "run_id": "rubric_luna_high_3000_batch03",
+        "task_id": "professional_networking_11:6",
+        "stage": "fresh_final_judge",
+        "revision": 1,
+        "model": "gpt-5.6-luna",
+        "reasoning_effort": "high",
+        "input_sha256": "afea8456605cbdf845b02e421d859cc6d461f400dc72eaf2c38924dd44b21b27",
+        "prompt_sha256": "f83e2b3eea9f1a3182d60bee0fe24fa399ef973b6dbf8952956cf37e503f947f",
+        "execution_sha256": "b6d9665de447d1dd802d9e94cf889a5f2126f381784744c1e217e5455afe2517",
+        "fork_turns": "none"
+      },
+      "files": {
+        "completed.json": "b4080edebc56129fc1aa5808d28c51da6c0f1f85f077fcfea7030d35cb6c0b7a",
+        "events.jsonl": "22b97dc4d5b6a965b1c8e64a3b313f16252cdc351f5b7936d721b6e2b6b74cb9",
+        "identity.json": "6d9833116c6f2dda937a38ffabd68a98d857c0d093b488d210f8b78249e822ae",
+        "input.json": "afea8456605cbdf845b02e421d859cc6d461f400dc72eaf2c38924dd44b21b27",
+        "started.json": "871b053149f2b4ff885c17805f40bfb753c2e22ae690fd1011f50be7197a9654",
+        "stderr.txt": "5b0c97f7e00d78e528cd70724d1f26240f1e767450082e21c58d756e3299e486",
+        "usage.json": "d91548307ded5fd5e8f3029ac0e226b89aa1457f0a5411126a1a6e85ee43f6f6"
+      }
+    }
+  ]
+}
