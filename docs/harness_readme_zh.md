@@ -109,3 +109,49 @@ python -m pytest tests/test_clean_data.py tests/test_two_layer.py -q
 ```
 
 集成测试使用明确标记的合成 FastAPI/MCP 环境，覆盖真实读写、长返回、四候选隔离、文件越界、超时、服务退出、用户取消、只读答复、官方 SQL 取证和 Judge 请求构造。当前真实 AWM 开发试点及验收边界见 `harness_validation_zh.md`。
+
+## 6. V2 执行协议
+
+`protocol_id=awm-single-json-v2` 启用新执行循环；默认配置仍保留 v1，旧脚本不必迁移。扩大预算的独立模板在 `configs/harness/v2-expanded.json`，其全局 API 额度默认仍为 0，需要给新实验明确配置。Actor/Judge 的模型、endpoint 与凭证配置由实验入口继承冻结来源。
+
+V2 在启动时提供完整条目分页的名称索引。`list_tools` 与 `search_tools` 使用返回的 `next_cursor`；搜索覆盖完整目录，精确名称优先。`get_tool_schema` 获取指定工具的完整描述与参数。超大 schema 使用稳定 observation ID 回读；回读按序列化字节限制页面，自动限制过大的 `limit`，返回 `next_offset`、`has_more` 和实际字符数。目录、schema 与回读均是 harness 操作，不计入业务调用。
+
+```json
+{"type":"search_tools","query":"webhook endpoint","cursor":null}
+{"type":"get_tool_schema","name":"create_webhook_endpoint"}
+{"type":"finish","status":"blocked","answer":"没有创建 webhook：缺少目标 URL。","reason":"任务未给出目标 URL，已有记录也无法确定。"}
+```
+
+每次模型响应仍必须仅包含一个 JSON 对象。上面的多行仅展示独立动作示例。V2 `finish` 必须有非空 `answer` 和 `status`；`blocked`、`incomplete` 还必须有非空 `reason`。零业务调用的普通退出被纠正一次，再次退出允许明确报告阻塞。收尾模式不再纠正零调用，也不允许执行业务工具。
+
+输入达到可用窗口的 75% 时，工作上下文保留系统规则、原题、最近四轮、选中工具 schema 和旧轮次的执行台账。台账只记录传输事实及可回读引用，不推断业务成功；全部原文和逐轮实际输入继续封存。相同发现结果在工作上下文中用引用去重。当前使用保守 UTF-8 字节估计；没有加载或假称已验证模型 tokenizer。Runner/API 使用同一窗口检查，取较小配置窗口。
+
+每个 API episode 在共享 SQLite 账本中保留一次收尾请求的 token 和物理请求额度；其他 Actor/Judge 请求不能占用它。收尾输入上限为 16,384 估算 token（受上下文窗口约束），输出不超过 2,048 token，时间不超过 60 秒；优先保留近期完整交互，容纳不了的证据保留引用并明确标记，不能据此宣称成功。正常循环也为该请求预留轮数、累计 token 和时间。无法收尾时 `final_answer` 保持真实模型答案，不生成伪造答案；另写 `termination_report.json`。未知 API 用量继续占据预算。
+
+取消默认来源为 `unknown`。控制器可用 `task.cancel("user")`、`task.cancel("scheduler")`、`task.cancel("shutdown")` 显式标记来源；记录发生阶段，包括模型排队和清理。用户取消不启动新模型/Judge 请求。业务调用超时或取消后保留 `outcome_unknown`，不重放。崩溃后遗留的 budget holds 不自动释放；它们表示未核实的保留额度，应使用新运行而不是自动复用不确定状态。
+
+新证据增加封存的 `protocol.json` 与 `termination_report.json`。`episode_result.json` 增加 `completion_status`、`termination_phase`、`execution_metrics`，包括首次业务调用、发现开销、未知用量、重复请求、纠正、收尾和阶段耗时。汇总给出零调用／空答案／终止原因的交叉统计。Judge 读取新动作及系统终止报告；SFT 拒绝 blocked、incomplete 和没有真实完成答案的 v2 轨迹。
+
+### 冻结任务对照
+
+```bash
+# 不调用外部模型：验证历史目录全部名称可达、精确搜索及 schema 无损回读。
+agent-world-model/.venv/bin/python scripts/validate_harness_v2_catalogs.py \
+  --output runs/my_v2_catalog_audit.json
+
+# 准备两组实验，共用一个硬预算；不会覆盖已有目录。
+agent-world-model/.venv/bin/python scripts/harness_v2_experiment.py prepare \
+  --run runs/my_v2_experiment --max-requests 6000 --max-tokens 15000000
+
+# 各组 10 题试点；实际调用既有外部 Actor/Judge，产生 API 用量。
+agent-world-model/.venv/bin/python scripts/harness_v2_experiment.py run \
+  --run runs/my_v2_experiment --phase pilot
+
+# 继续其余题目，已有结果不重跑，中断的业务执行不自动重放。
+agent-world-model/.venv/bin/python scripts/harness_v2_experiment.py run \
+  --run runs/my_v2_experiment --phase all
+```
+
+两组分别使用历史执行预算和扩大预算，发现/压缩机制相同。Actor 沿用历史模型配置，Judge 使用冻结 v4 rubric 及配置；所有候选从原冻结初态复制。准备阶段冻结代码哈希，执行时发生实现变更需要创建新实验。原 100 题中只有 80 题有可验证的冻结执行初态，其他 20 题单列为 preflight blocked，保留计划分母，不重新初始化世界。
+
+`summary.json` 提供两组逐题状态、原失败样本的零调用／空回复统计、原成功样本退化清单和共享预算使用量。历史 Judge 结果不是人工真值；系统终止报告和新增业务调用不能算作任务成功。

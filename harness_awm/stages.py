@@ -86,6 +86,7 @@ def metrics(run):
             "interpretation": "invalid is not confirmed business failure; mock outcomes are not official successes"}
     data["execution"] = {"zero_business_calls": sum(r["zero_business_calls"] for r in execution_details),
                          "empty_model_answers": sum(r["empty_model_answer"] for r in execution_details),
+                         "finalization_triggers": dict(Counter(r.get("finalization_trigger") for r in execution_details if r.get("finalization_trigger"))),
                          "intersections": dict(intersections), "episodes": execution_details}
     if any(r.get("judge_protocol") == "rubric_v2" for r in results):
         v2 = [r for r in results if r.get("judge_protocol") == "rubric_v2"]

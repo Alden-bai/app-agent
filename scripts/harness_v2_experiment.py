@@ -100,7 +100,11 @@ def report(run):
     run = Path(run).resolve()
     m = load_manifest(run)
     result = {'planned_tasks':len(m['tasks']), 'frozen_ready':sum(t['ready'] for t in m['tasks']),
-              'preflight_blocked':[{'id':t['id'],'reason':t['preflight_error']} for t in m['tasks'] if not t['ready']], 'arms':{}}
+              'preflight_blocked':[{'id':t['id'],'reason':t['preflight_error']} for t in m['tasks'] if not t['ready']], 'arms':{},
+              'limitations':['Historical Judge labels are not human gold.',
+                             'Actual wall clock is recorded, not frozen; relative-time tasks can differ.',
+                             'Model sampling is not deterministic.',
+                             'A final answer after a resource stop is not proof of business completion.']}
     for arm in m['configs']:
         records = []
         for t in m['tasks']:
@@ -118,7 +122,8 @@ def report(run):
         failed = [r for r in records if r['baseline_status']=='failed']
         result['arms'][arm] = {'recorded':len(records),
             'statuses':dict(Counter(r['new_status'] for r in records)),
-            'terminations':dict(Counter(r['termination'] for r in records)),
+            'terminations':dict(Counter(r['termination'] or 'not_executed' for r in records)),
+            'finalization_triggers':dict(Counter(r['metrics']['finalization_trigger'] for r in records if r['metrics'].get('finalization_trigger'))),
             'original_failed_zero_calls':sum(r['tool_calls']==0 for r in failed),
             'original_failed_empty_answers':sum(r['empty_answer'] is True for r in failed),
             'regressions':[r['id'] for r in records if r['baseline_status']=='confirmed_pass' and r['new_status']!='confirmed_pass'],

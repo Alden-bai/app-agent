@@ -1,0 +1,60 @@
+{
+  "version": "environment_screen_dual_20261105_v1",
+  "prepared_on": "2026-11-05",
+  "purpose": "Prompt and fixed assignment package only; no audit jobs started by package preparation.",
+  "source_run": "/home/bjx/awm-agent/runs/environment_screen_remaining5909_20261104_v1",
+  "source_inventory_sha256": "6a058a2c1c66beaf2a1455116a07f15fce047270982661f6c518ada85ec67e7f",
+  "source_count": 5909,
+  "scenario_count": 1000,
+  "partition_method": "Sort scenarios by (-task_count, scenario); assign whole scenario to lower-count shard; tie A; sort shard rows by task_id.",
+  "preserve_case_id": true,
+  "global_worker_limit": 12,
+  "per_shard_worker_limit": 6,
+  "sampling_method": "Original algorithm unchanged: one random.Random(2026110401), sorted scenarios, each population sorted by task_id, sample ceil(n*0.05); publish one global sample after both initial populations complete.",
+  "sources": {
+    "/home/bjx/.codex/attachments/e953d79d-a76e-479a-af2d-2178bc6fadfb/已粘贴的文本.txt": "ba1037214d5e1fa2a47bfcfd7149da87f81a73f0367bf0b443b88ee57fed6b40",
+    "/home/bjx/awm-agent/runs/environment_screen_remaining5909_20261104_v1/inventory.jsonl": "6a058a2c1c66beaf2a1455116a07f15fce047270982661f6c518ada85ec67e7f",
+    "/home/bjx/awm-agent/configs/environment_screen/pilot100_v2/prompt_zh.txt": "e969206fbe5218aaca8ee9ad1e67c88f3f06a228b0cf46bb63a012e658934265"
+  },
+  "shards": {
+    "A": {
+      "count": 2955,
+      "scenario_count": 500,
+      "assignment": "/home/bjx/awm-agent/docs/prompts/environment_screen_dual_20261105_v1/A.tasks.jsonl",
+      "run_dir": "/home/bjx/awm-agent/runs/environment_screen_dual_20261105_v1/A",
+      "old_queue_snapshot_only": {
+        "task_states": {
+          "pending": 2937,
+          "completed": 17,
+          "blocked": 1
+        },
+        "initial_completed": 46,
+        "revalidate_on_execution": true
+      }
+    },
+    "B": {
+      "count": 2954,
+      "scenario_count": 500,
+      "assignment": "/home/bjx/awm-agent/docs/prompts/environment_screen_dual_20261105_v1/B.tasks.jsonl",
+      "run_dir": "/home/bjx/awm-agent/runs/environment_screen_dual_20261105_v1/B",
+      "old_queue_snapshot_only": {
+        "task_states": {
+          "completed": 13,
+          "pending": 2940,
+          "blocked": 1
+        },
+        "initial_completed": 49,
+        "revalidate_on_execution": true
+      }
+    }
+  },
+  "files_sha256": {
+    "original_instructions.txt": "ba1037214d5e1fa2a47bfcfd7149da87f81a73f0367bf0b443b88ee57fed6b40",
+    "control_rules.txt": "2bef062a3d6998d566e012a8a9e25d478d223c44aac7a1546c824d241199b8c8",
+    "A.tasks.jsonl": "12a60265add2898e7ed23d357102970f3d2b71d845033ad57d20f78fa54e31d6",
+    "B.tasks.jsonl": "4e5aad2ff4810c7a6f59f29a6024e1f507eb3e4b0eea1aa1abe2a171b5af0f32",
+    "session_A.txt": "1aeaaffd5fe9c6b931d6af8d13236e5e4a0e01f2af92e7e2c0d5ebc54ad254b6",
+    "session_B.txt": "8f682ba3d74f5062239b515c367e65d16ded83c8497b6dc041ac444be6088f32",
+    "coordination_protocol.json": "f317ee020dc7483ae3e66356bbd7f8d7a8e82337c84f5d918d9d3bb7a3369c7f"
+  }
+}

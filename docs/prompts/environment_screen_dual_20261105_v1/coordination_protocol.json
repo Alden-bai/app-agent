@@ -1,0 +1,229 @@
+{
+  "protocol_version": "awm-environment-screen-dual-v1",
+  "description": "两片必须实现同一文件协议；这是接口约定，不表示运行器已经实现。",
+  "encoding": "UTF-8; JSONL one object per line; timestamps UTC ISO8601; SHA256 lowercase hex of exact file bytes; paths absolute",
+  "publication": "Mutable JSON snapshots and immutable final files are published by same-filesystem temporary file plus atomic rename. Immutable files must never be replaced with different content. All readers verify hashes and version before using READY.",
+  "protocol_copy": "COORD/protocol.json is an exact-byte copy of this file, published under COORD/protocol.lock; lock acquisition timeout 90 seconds.",
+  "common_binding_fields": [
+    "protocol_version",
+    "protocol_sha256",
+    "split_manifest_sha256",
+    "inventory_sha256"
+  ],
+  "shard_binding_fields": [
+    "shard",
+    "assignment_sha256"
+  ],
+  "runtime_status": {
+    "path": "RUN/runtime_status.json",
+    "required_fields": [
+      "protocol_version",
+      "shard",
+      "state",
+      "updated_at",
+      "last_progress_at",
+      "controller_identity",
+      "task_counts",
+      "job_counts",
+      "runnable_jobs",
+      "initial_completed",
+      "active",
+      "blocked_reasons",
+      "next_action"
+    ],
+    "state_values": [
+      "preparing",
+      "running",
+      "waiting_peer",
+      "paused_infrastructure",
+      "stopped_with_unfinished_work",
+      "completed"
+    ],
+    "controller_identity_fields": [
+      "pid",
+      "process_start_identity",
+      "host_identity",
+      "run_dir"
+    ],
+    "active_item_fields": [
+      "job_id",
+      "attempt",
+      "stage",
+      "stage_started_at",
+      "last_event_at",
+      "deadline_at",
+      "process_identities"
+    ],
+    "progress_definition": "Actual stage/event advancement, accepted result, or queue transition; a periodic heartbeat must not update last_progress_at by itself."
+  },
+  "initial_results": {
+    "path": "RUN/initial_results.frozen.jsonl",
+    "order": "task_id ascending",
+    "required_row_fields": [
+      "task_id",
+      "case_id",
+      "scenario",
+      "first_decision",
+      "first_ref",
+      "first_sha256"
+    ],
+    "first_decision_values": [
+      "pass",
+      "exclude",
+      "review"
+    ],
+    "coverage": "Every task in the shard exactly once, all first results valid and immutable; no pending or blocked initial job. Imported first results retain their original label and lineage."
+  },
+  "initial_ready": {
+    "path": "RUN/INITIAL_READY.json",
+    "required_fields": [
+      "protocol_version",
+      "protocol_sha256",
+      "split_manifest_sha256",
+      "inventory_sha256",
+      "shard",
+      "assignment_sha256",
+      "count",
+      "initial_results_ref",
+      "initial_results_sha256",
+      "validation_ref",
+      "validation_sha256",
+      "created_at"
+    ],
+    "validation": "Reader rechecks full assignment coverage and referenced first-result hashes before sampling; READY presence alone is insufficient."
+  },
+  "sample": {
+    "path": "COORD/pass_sample.json",
+    "lock": "COORD/pass_sample.lock",
+    "required_fields": [
+      "protocol_version",
+      "protocol_sha256",
+      "split_manifest_sha256",
+      "inventory_sha256",
+      "initial_ready_sha256",
+      "initial_results_sha256",
+      "seed",
+      "method",
+      "python_version",
+      "population",
+      "selected",
+      "created_at"
+    ],
+    "ready_hash_maps": "initial_ready_sha256 and initial_results_sha256 are objects with keys A and B",
+    "seed": 2026110401,
+    "method": "One random.Random(2026110401); iterate sorted scenarios containing initial pass; each population sorted by task_id; rng.sample(pop, ceil(len(pop)*0.05)); sort chosen rows by task_id; append in scenario order. No reseeding between scenarios or shards.",
+    "population_row_fields": [
+      "scenario",
+      "task_ids"
+    ],
+    "selected_row_fields": [
+      "case_id",
+      "task_id",
+      "scenario",
+      "shard"
+    ],
+    "content_hash": "Consumers compute SHA256 of the published file and bind it in SHARD_READY; do not embed a self-referential hash.",
+    "queue_ownership": "Each controller validates the whole sample but creates pass_audit jobs only in its own queue for selected task_ids it owns."
+  },
+  "global_control": {
+    "lock": "COORD/global_control.lock",
+    "events_path": "COORD/control_events.jsonl",
+    "snapshot_path": "COORD/GLOBAL_CONTROL.json",
+    "event_required_fields": [
+      "protocol_version",
+      "seq",
+      "event_id",
+      "at",
+      "shard",
+      "kind",
+      "scope",
+      "job_id",
+      "attempt",
+      "error_class",
+      "evidence_ref",
+      "evidence_sha256",
+      "detail"
+    ],
+    "nullable_event_fields": [
+      "job_id",
+      "attempt",
+      "error_class",
+      "evidence_ref",
+      "evidence_sha256"
+    ],
+    "event_kinds": [
+      "infrastructure_success",
+      "infrastructure_failure",
+      "fatal_global",
+      "pause_scope",
+      "correction_notice",
+      "resume_verified"
+    ],
+    "snapshot_fields": [
+      "protocol_version",
+      "last_seq",
+      "stop_dispatch",
+      "consecutive_infrastructure_failures",
+      "stop_reasons",
+      "affected_scopes",
+      "updated_at"
+    ],
+    "transaction": "Under global_control.lock, validate/recover append log, deduplicate event_id, assign increasing seq, append and flush event, then atomically replace derived snapshot. A crash between event and snapshot is recovered by replay. Preserve any incomplete trailing bytes as crash evidence before repair; never silently discard complete records.",
+    "counter": "In lock-defined event order, infrastructure_success resets streak; classified infrastructure_failure increments it; other events do not alter streak. At streak >=3 stop_dispatch stays true until a resume_verified event supported by remediation evidence. fatal_global sets stop_dispatch true immediately. Ordinary later successes cannot clear an existing stop.",
+    "scope": "Use global, shard:A, shard:B, or an explicit task_id list; ordinary isolated citation/business errors must not emit infrastructure_failure.",
+    "correction_notice_detail_fields": [
+      "issue_id",
+      "affected_scope",
+      "mechanism",
+      "required_action",
+      "source_versions"
+    ],
+    "dispatch_check": "Check global snapshot before every new model dispatch. Short in-flight calls finish within their deadlines. Controller restart must not clear a stop. An unreadable or incompatible control state requires pausing new dispatch, not assuming permission.",
+    "initialization": "Before first dispatch, acquire global_control.lock. Only if both event log and snapshot are absent in a new run, initialize seq=0, streak=0, stop_dispatch=false. If events exist, derive snapshot by validated replay; never reset an existing run merely because a snapshot is missing."
+  },
+  "shard_ready": {
+    "path": "RUN/SHARD_READY.json",
+    "required_fields": [
+      "protocol_version",
+      "protocol_sha256",
+      "split_manifest_sha256",
+      "inventory_sha256",
+      "shard",
+      "assignment_sha256",
+      "count",
+      "completed",
+      "pass_sample_ref",
+      "pass_sample_sha256",
+      "final_results_ref",
+      "final_results_sha256",
+      "acceptance_ref",
+      "acceptance_sha256",
+      "regression_gate_ref",
+      "regression_gate_sha256",
+      "usage_ref",
+      "usage_sha256",
+      "unresolved_corrections",
+      "created_at"
+    ],
+    "final_results_row_required_fields": [
+      "task_id",
+      "case_id",
+      "scenario",
+      "status",
+      "first_decision",
+      "first_ref",
+      "first_sha256",
+      "final_decision",
+      "final_ref",
+      "final_sha256",
+      "checks_completed"
+    ],
+    "precondition": "All own tasks completed; required reviews/samples/corrections complete; unresolved_corrections empty; program checks and master semantic acceptance approved."
+  },
+  "merge": {
+    "lock": "COORD/final_merge.lock",
+    "directory": "COORD/combined",
+    "ownership": "Either controller may merge under lock after verifying both SHARD_READY files and all referenced hashes. Neither writes the other queue. Existing matching merged results are reused.",
+    "completion": "5909 unique original task_ids exactly covered; 8 regression cases excluded from task count; all required checks and correction scopes resolved."
+  }
+}
