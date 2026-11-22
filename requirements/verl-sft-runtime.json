@@ -1,0 +1,25 @@
+{
+  "revision": "7aed6b230776f963fa09509c10d9c3a767d1102c",
+  "packages": {
+    "verl": "0.8.0.dev0",
+    "torch": "2.10.0",
+    "transformers": "5.22.1",
+    "ray": "2.55.1",
+    "tensordict": "0.10.0",
+    "torchdata": "0.11.0",
+    "flash-linear-attention": "0.6.0",
+    "liger-kernel": "0.8.5"
+  },
+  "source_sha256": {
+    "trainer/main_ppo.py": "e3fe6e73b18d63367402a2570c5ba054a2b05443ac40a168524dbf545b1da392",
+    "trainer/ppo/ray_trainer.py": "de58d295cf86656a28196b0718168d4a11666f3e30957b7e166914496c2a6d66",
+    "workers/engine_workers.py": "721f866442475a08768854b58176a4dcd99de4564809e3d067dced7cba1122db",
+    "workers/rollout/llm_server.py": "48479a8ee7a322b5c326bc3166e7c8af28d962376a352028c24c5424abd9b495",
+    "workers/utils/padding.py": "f3cc823e6ef2099075406f6fe1244498f15a775f0fac90010c0babf1c82cbe7b",
+    "trainer/sft_trainer.py": "22e21f4a69ec473116454a6e97cd3462ad63a47c580740d7b5b9a31c00587e84",
+    "utils/dataset/dataset_utils.py": "da10fe0552ec17af1e3a44ba53cfdb1f02103c786257222fc1b4a8de34e95913",
+    "workers/utils/losses.py": "701a0bf7cd7c0fa3cde670379d44cce5755bcd44222e8866716e69d27a400b5d",
+    "workers/engine/fsdp/transformer_impl.py": "b4f6243471f22c08dbfa472d13f708e8de609705ecff13f23713258160cf7902"
+  },
+  "profile": "SFT only: SDPA, pure torch padding, CUDA 12.8; no rollout engine"
+}

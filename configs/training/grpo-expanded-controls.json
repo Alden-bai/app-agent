@@ -1,0 +1,667 @@
+{
+  "accounting_finance_2:7": {
+    "calls": [
+      [
+        "list_clients",
+        {
+          "name": "Sunrise Yoga Studio"
+        }
+      ],
+      [
+        "list_tax_codes",
+        {
+          "code": "NONE"
+        }
+      ],
+      [
+        "create_estimate",
+        {
+          "client_id": 4,
+          "status": "sent",
+          "estimate_date": "2026-01-12",
+          "currency_code": "USD"
+        }
+      ],
+      [
+        "create_estimate_line_item",
+        {
+          "estimate_id": 5,
+          "line_number": 1,
+          "description": "Studio setup consultation",
+          "quantity": 5,
+          "unit_price": 150,
+          "tax_code_id": 1
+        }
+      ],
+      [
+        "create_estimate_line_item",
+        {
+          "estimate_id": 5,
+          "line_number": 2,
+          "description": "Staff training session",
+          "quantity": 3,
+          "unit_price": 200,
+          "tax_code_id": 1
+        }
+      ],
+      [
+        "recalculate_estimate_totals",
+        {
+          "estimate_id": 5
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "list_clients",
+        {
+          "name": "Sunrise Yoga Studio"
+        }
+      ],
+      [
+        "list_tax_codes",
+        {
+          "code": "NONE"
+        }
+      ],
+      [
+        "create_estimate",
+        {
+          "client_id": 4,
+          "status": "sent",
+          "estimate_date": "2026-01-12",
+          "currency_code": "USD"
+        }
+      ],
+      [
+        "create_estimate_line_item",
+        {
+          "estimate_id": 5,
+          "line_number": 1,
+          "description": "Studio setup consultation",
+          "quantity": 5,
+          "unit_price": 150,
+          "tax_code_id": 1
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM estimates WHERE id=5 AND client_id=4 AND status='sent' AND estimate_date='2026-01-12'), EXISTS(SELECT 1 FROM estimate_line_items WHERE estimate_id=5 AND line_number=1 AND description='Studio setup consultation' AND quantity=5 AND unit_price=150 AND tax_code_id=1), EXISTS(SELECT 1 FROM estimate_line_items WHERE estimate_id=5 AND line_number=2 AND description='Staff training session' AND quantity=3 AND unit_price=200 AND tax_code_id=1)",
+    "answer": "Created estimate 5 for Sunrise Yoga Studio, sent, dated 2026-01-12, with Studio setup consultation (5 × 150) and Staff training session (3 × 200), both tax NONE. Total 1350 USD."
+  },
+  "analytics_dashboard_1:3": {
+    "calls": [
+      [
+        "list_projects",
+        {
+          "name": "Mobile App - Production"
+        }
+      ],
+      [
+        "create_survey",
+        {
+          "project_id": 2,
+          "title": "Support Chat CSAT",
+          "survey_type": "CSAT"
+        }
+      ],
+      [
+        "create_survey_question",
+        {
+          "survey_id": 6,
+          "position": 1,
+          "question_type": "scale",
+          "label": "How satisfied are you with the support you received today?",
+          "is_required": true,
+          "scale_min": 1,
+          "scale_max": 5
+        }
+      ],
+      [
+        "create_survey_question",
+        {
+          "survey_id": 6,
+          "position": 2,
+          "question_type": "multiple_choice",
+          "label": "Support outcome",
+          "is_required": true
+        }
+      ],
+      [
+        "create_survey_question",
+        {
+          "survey_id": 6,
+          "position": 3,
+          "question_type": "text",
+          "label": "Any additional comments?",
+          "is_required": true
+        }
+      ],
+      [
+        "create_survey_question_option",
+        {
+          "question_id": 12,
+          "position": 1,
+          "option_text": "Issue resolved"
+        }
+      ],
+      [
+        "create_survey_question_option",
+        {
+          "question_id": 12,
+          "position": 2,
+          "option_text": "Partially resolved"
+        }
+      ],
+      [
+        "create_survey_question_option",
+        {
+          "question_id": 12,
+          "position": 3,
+          "option_text": "Not resolved"
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "list_projects",
+        {
+          "name": "Mobile App - Production"
+        }
+      ],
+      [
+        "create_survey",
+        {
+          "project_id": 2,
+          "title": "Support Chat CSAT",
+          "survey_type": "CSAT"
+        }
+      ],
+      [
+        "create_survey_question",
+        {
+          "survey_id": 6,
+          "position": 1,
+          "question_type": "scale",
+          "label": "How satisfied are you with the support you received today?",
+          "is_required": true,
+          "scale_min": 1,
+          "scale_max": 5
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM surveys WHERE id=6 AND project_id=2 AND title='Support Chat CSAT' AND survey_type='CSAT'), EXISTS(SELECT 1 FROM survey_questions WHERE id=11 AND survey_id=6 AND question_type='scale' AND label='How satisfied are you with the support you received today?' AND is_required=1 AND scale_min=1 AND scale_max=5), EXISTS(SELECT 1 FROM survey_questions WHERE id=12 AND survey_id=6 AND question_type='multiple_choice' AND is_required=1), EXISTS(SELECT 1 FROM survey_questions WHERE id=13 AND survey_id=6 AND question_type='text' AND label='Any additional comments?' AND is_required=1), EXISTS(SELECT 1 FROM survey_question_options WHERE question_id=12 AND position=1 AND option_text='Issue resolved'), EXISTS(SELECT 1 FROM survey_question_options WHERE question_id=12 AND position=2 AND option_text='Partially resolved'), EXISTS(SELECT 1 FROM survey_question_options WHERE question_id=12 AND position=3 AND option_text='Not resolved')",
+    "answer": "Created survey 6, Support Chat CSAT, in Mobile App - Production, with all three required questions and the three requested answer options."
+  },
+  "application_management_3:5": {
+    "calls": [
+      [
+        "create_program",
+        {
+          "id": "WIT-2026-GRPO-CONTROL",
+          "title": "Women in Tech Scholarship 2026",
+          "description": "Scholarship for women pursuing undergraduate computer science degrees",
+          "eligibility": "Female students enrolled full-time in a CS program with GPA ≥ 3.0",
+          "start_date": "2026-03-01",
+          "end_date": "2026-05-31",
+          "capacity": 100
+        }
+      ],
+      [
+        "create_application_form_for_program",
+        {
+          "program_id": "WIT-2026-GRPO-CONTROL",
+          "title": "Women in Tech 2026 Application"
+        }
+      ],
+      [
+        "add_question_to_application_form",
+        {
+          "form_id": 7,
+          "question_text": "Full Name",
+          "field_name": "full_name",
+          "field_type": "text",
+          "is_required": true,
+          "position": 1
+        }
+      ],
+      [
+        "add_question_to_application_form",
+        {
+          "form_id": 7,
+          "question_text": "University Name",
+          "field_name": "university",
+          "field_type": "text",
+          "is_required": true,
+          "position": 2
+        }
+      ],
+      [
+        "add_question_to_application_form",
+        {
+          "form_id": 7,
+          "question_text": "Current GPA",
+          "field_name": "gpa",
+          "field_type": "number",
+          "is_required": true,
+          "position": 3
+        }
+      ],
+      [
+        "add_question_to_application_form",
+        {
+          "form_id": 7,
+          "question_text": "Short Essay: Why you chose Computer Science?",
+          "field_name": "essay",
+          "field_type": "textarea",
+          "is_required": true,
+          "position": 4
+        }
+      ],
+      [
+        "add_question_to_application_form",
+        {
+          "form_id": 7,
+          "question_text": "Transcript PDF",
+          "field_name": "transcript",
+          "field_type": "file",
+          "is_required": false,
+          "position": 5
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "create_program",
+        {
+          "id": "WIT-2026-GRPO-CONTROL",
+          "title": "Women in Tech Scholarship 2026",
+          "description": "Scholarship for women pursuing undergraduate computer science degrees",
+          "eligibility": "Female students enrolled full-time in a CS program with GPA ≥ 3.0",
+          "start_date": "2026-03-01",
+          "end_date": "2026-05-31",
+          "capacity": 100
+        }
+      ],
+      [
+        "create_application_form_for_program",
+        {
+          "program_id": "WIT-2026-GRPO-CONTROL",
+          "title": "Women in Tech 2026 Application"
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM programs WHERE id='WIT-2026-GRPO-CONTROL' AND title='Women in Tech Scholarship 2026' AND description='Scholarship for women pursuing undergraduate computer science degrees' AND eligibility='Female students enrolled full-time in a CS program with GPA ≥ 3.0' AND start_date='2026-03-01' AND end_date='2026-05-31' AND capacity=100), EXISTS(SELECT 1 FROM application_forms WHERE id=7 AND program_id='WIT-2026-GRPO-CONTROL'), EXISTS(SELECT 1 FROM application_form_questions WHERE form_id=7 AND question_text='Full Name' AND field_type='text' AND is_required=1), EXISTS(SELECT 1 FROM application_form_questions WHERE form_id=7 AND question_text='University Name' AND field_type='text' AND is_required=1), EXISTS(SELECT 1 FROM application_form_questions WHERE form_id=7 AND question_text='Current GPA' AND field_type='number' AND is_required=1), EXISTS(SELECT 1 FROM application_form_questions WHERE form_id=7 AND question_text='Short Essay: Why you chose Computer Science?' AND field_type='textarea' AND is_required=1), EXISTS(SELECT 1 FROM application_form_questions WHERE form_id=7 AND question_text='Transcript PDF' AND field_type='file' AND is_required=0)",
+    "answer": "Created program WIT-2026-GRPO-CONTROL with the requested description, eligibility, dates and capacity, and associated form 7 with four required questions and optional Transcript PDF upload."
+  },
+  "application_management_4:1": {
+    "calls": [
+      [
+        "create_application_education_entry",
+        {
+          "application_id": 4501,
+          "institution_name": "State University",
+          "degree_level": "BSc",
+          "field_of_study": "Computer Science",
+          "end_year": 2022,
+          "is_current": 0
+        }
+      ],
+      [
+        "create_application_education_entry",
+        {
+          "application_id": 4501,
+          "institution_name": "Tech Institute",
+          "degree_level": "MSc",
+          "field_of_study": "Data Science",
+          "end_year": 2026,
+          "is_current": 1
+        }
+      ],
+      [
+        "set_application_section_completion",
+        {
+          "application_id": 4501,
+          "section_code": "education",
+          "is_complete": 1
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "create_application_education_entry",
+        {
+          "application_id": 4501,
+          "institution_name": "State University",
+          "degree_level": "BSc",
+          "field_of_study": "Computer Science",
+          "end_year": 2022,
+          "is_current": 0
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM application_education_history WHERE id>7 AND application_id=4501 AND institution_name='State University' AND degree_level='BSc' AND field_of_study='Computer Science' AND end_year=2022 AND is_current=0), EXISTS(SELECT 1 FROM application_education_history WHERE id>7 AND application_id=4501 AND institution_name='Tech Institute' AND degree_level='MSc' AND field_of_study='Data Science' AND end_year=2026 AND is_current=1), EXISTS(SELECT 1 FROM application_sections WHERE application_id=4501 AND section_code='education' AND is_complete=1), EXISTS(SELECT 1 FROM applications WHERE id=4501 AND program_id=102 AND status='in_progress')",
+    "answer": "Added both requested education records to application 4501, marked education complete, and kept overall status in_progress."
+  },
+  "application_portal_1:5": {
+    "calls": [
+      [
+        "create_recommendation_request",
+        {
+          "id": "grpo-control-rec-0",
+          "application_submission_id": "app_sub_7890",
+          "recommender_email": "prof.jones@springfield.edu",
+          "relationship_type": "CS professor",
+          "due_date": "2025-02-15",
+          "status": "pending"
+        }
+      ],
+      [
+        "create_recommendation_request",
+        {
+          "id": "grpo-control-rec-1",
+          "application_submission_id": "app_sub_7890",
+          "recommender_email": "supervisor.liu@techinterns.org",
+          "relationship_type": "internship supervisor",
+          "due_date": "2025-02-20",
+          "status": "pending"
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "create_recommendation_request",
+        {
+          "id": "grpo-control-rec-0",
+          "application_submission_id": "app_sub_7890",
+          "recommender_email": "prof.jones@springfield.edu",
+          "relationship_type": "CS professor",
+          "due_date": "2025-02-15",
+          "status": "pending"
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM recommendation_requests WHERE id='grpo-control-rec-0' AND application_submission_id='app_sub_7890' AND recommender_email='prof.jones@springfield.edu' AND relationship_type='CS professor' AND due_date='2025-02-15' AND status='pending'), EXISTS(SELECT 1 FROM recommendation_requests WHERE id='grpo-control-rec-1' AND application_submission_id='app_sub_7890' AND recommender_email='supervisor.liu@techinterns.org' AND relationship_type='internship supervisor' AND due_date='2025-02-20' AND status='pending')",
+    "answer": "Created two pending recommendation requests for app_sub_7890: prof.jones@springfield.edu, CS professor, due 2025-02-15; supervisor.liu@techinterns.org, internship supervisor, due 2025-02-20."
+  },
+  "applications_and_registrations_1:3": {
+    "calls": [
+      [
+        "get_my_application_by_program_and_intake",
+        {
+          "program_name": "MSc Data Analytics",
+          "intake_name": "Fall 2025"
+        }
+      ],
+      [
+        "list_document_types",
+        {}
+      ],
+      [
+        "create_document",
+        {
+          "application_id": 3,
+          "document_type_id": 1,
+          "file_name": "Transcript_UofT.pdf"
+        }
+      ],
+      [
+        "create_document",
+        {
+          "application_id": 3,
+          "document_type_id": 2,
+          "file_name": "Passport_AJohnson.jpg"
+        }
+      ],
+      [
+        "create_document",
+        {
+          "application_id": 3,
+          "document_type_id": 3,
+          "file_name": "IELTS_Report_2024.pdf"
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "get_my_application_by_program_and_intake",
+        {
+          "program_name": "MSc Data Analytics",
+          "intake_name": "Fall 2025"
+        }
+      ],
+      [
+        "list_document_types",
+        {}
+      ],
+      [
+        "create_document",
+        {
+          "application_id": 3,
+          "document_type_id": 1,
+          "file_name": "Transcript_UofT.pdf"
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM documents WHERE id>6 AND application_id=3 AND document_type_id=1 AND file_name='Transcript_UofT.pdf'), EXISTS(SELECT 1 FROM documents WHERE id>6 AND application_id=3 AND document_type_id=2 AND file_name='Passport_AJohnson.jpg'), EXISTS(SELECT 1 FROM documents WHERE id>6 AND application_id=3 AND document_type_id=3 AND file_name='IELTS_Report_2024.pdf')",
+    "answer": "Added Transcript_UofT.pdf as transcript, Passport_AJohnson.jpg as passport, and IELTS_Report_2024.pdf as English test document metadata to MSc Data Analytics, Fall 2025, application 3."
+  },
+  "analytics_dashboard_4:6": {
+    "calls": [
+      [
+        "list_sites",
+        {
+          "name_contains": "Chicago Distribution Center"
+        }
+      ],
+      [
+        "list_meters",
+        {
+          "site_id": 1,
+          "meter_code": "ELEC-MAIN-01"
+        }
+      ],
+      [
+        "create_sustainability_project",
+        {
+          "site_id": 1,
+          "name": "LED Retrofit Phase 1",
+          "project_type": "lighting",
+          "estimated_savings_quantity": 18000,
+          "estimated_savings_co2e": 7200,
+          "savings_unit": "kWh/year",
+          "planned_start_date": "2025-03-01",
+          "planned_end_date": "2025-05-31"
+        }
+      ],
+      [
+        "create_project_meter_link",
+        {
+          "project_id": 6,
+          "meter_id": 1
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "list_sites",
+        {
+          "name_contains": "Chicago Distribution Center"
+        }
+      ],
+      [
+        "list_meters",
+        {
+          "site_id": 1,
+          "meter_code": "ELEC-MAIN-01"
+        }
+      ],
+      [
+        "create_sustainability_project",
+        {
+          "site_id": 1,
+          "name": "LED Retrofit Phase 1",
+          "project_type": "lighting",
+          "estimated_savings_quantity": 18000,
+          "estimated_savings_co2e": 7200,
+          "savings_unit": "kWh/year",
+          "planned_start_date": "2025-03-01",
+          "planned_end_date": "2025-05-31"
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM sustainability_projects WHERE id=6 AND site_id=1 AND name='LED Retrofit Phase 1' AND project_type='lighting' AND estimated_savings_quantity=18000 AND estimated_savings_co2e=7200 AND savings_unit='kWh/year' AND planned_start_date='2025-03-01' AND planned_end_date='2025-05-31'), EXISTS(SELECT 1 FROM project_meters WHERE project_id=6 AND meter_id=1)",
+    "answer": "Created project 6 LED Retrofit Phase 1 for Chicago Distribution Center with the requested annual savings and dates, linked to ELEC-MAIN-01."
+  },
+  "appointment_scheduling_1:6": {
+    "calls": [
+      [
+        "get_appointment_by_id",
+        {
+          "appointment_id": 5360
+        }
+      ],
+      [
+        "create_invoice",
+        {
+          "appointment_id": 5360,
+          "owner_id": 7,
+          "pet_id": 7,
+          "clinic_id": 1,
+          "invoice_date": "2026-11-10T00:00:00",
+          "status": "open",
+          "total_amount": 140,
+          "balance_due": 140
+        }
+      ],
+      [
+        "create_invoice_item",
+        {
+          "invoice_id": 6,
+          "description": "Physical exam",
+          "quantity": 1,
+          "unit_price": 65,
+          "line_total": 65
+        }
+      ],
+      [
+        "create_invoice_item",
+        {
+          "invoice_id": 6,
+          "description": "CBC lab test",
+          "quantity": 1,
+          "unit_price": 45,
+          "line_total": 45
+        }
+      ],
+      [
+        "create_invoice_item",
+        {
+          "invoice_id": 6,
+          "description": "Flea/tick preventive medication",
+          "quantity": 1,
+          "unit_price": 30,
+          "line_total": 30
+        }
+      ],
+      [
+        "create_payment",
+        {
+          "invoice_id": 6,
+          "payment_date": "2026-11-10T00:00:00",
+          "amount": 100,
+          "method": "credit_card"
+        }
+      ],
+      [
+        "update_invoice",
+        {
+          "invoice_id": 6,
+          "status": "partial",
+          "total_amount": 140,
+          "balance_due": 40
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "get_appointment_by_id",
+        {
+          "appointment_id": 5360
+        }
+      ],
+      [
+        "create_invoice",
+        {
+          "appointment_id": 5360,
+          "owner_id": 7,
+          "pet_id": 7,
+          "clinic_id": 1,
+          "invoice_date": "2026-11-10T00:00:00",
+          "status": "open",
+          "total_amount": 140,
+          "balance_due": 140
+        }
+      ],
+      [
+        "create_invoice_item",
+        {
+          "invoice_id": 6,
+          "description": "Physical exam",
+          "quantity": 1,
+          "unit_price": 65,
+          "line_total": 65
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM invoices WHERE id=6 AND appointment_id=5360 AND pet_id=7 AND total_amount=140 AND balance_due=40), EXISTS(SELECT 1 FROM invoice_items WHERE invoice_id=6 AND description='Physical exam' AND quantity=1 AND unit_price=65 AND line_total=65), EXISTS(SELECT 1 FROM invoice_items WHERE invoice_id=6 AND description='CBC lab test' AND quantity=1 AND unit_price=45 AND line_total=45), EXISTS(SELECT 1 FROM invoice_items WHERE invoice_id=6 AND description='Flea/tick preventive medication' AND quantity=1 AND unit_price=30 AND line_total=30), EXISTS(SELECT 1 FROM payments WHERE invoice_id=6 AND amount=100 AND method='credit_card')",
+    "answer": "Created invoice 6 for appointment 5360, Daisy Miller, with Physical exam $65, CBC lab test $45 and Flea/tick preventive medication $30; total $140, credit-card payment $100, outstanding $40."
+  },
+  "asset_management_1:4": {
+    "calls": [
+      [
+        "get_asset_by_asset_tag",
+        {
+          "asset_tag": "YD-LOADER-01"
+        }
+      ],
+      [
+        "create_maintenance_event",
+        {
+          "asset_id": 1,
+          "event_type": "preventive_service",
+          "scheduled_date": "2025-04-10",
+          "completed_date": "2025-04-12",
+          "technician": "Technician_42",
+          "cost": 750
+        }
+      ],
+      [
+        "update_asset_status",
+        {
+          "asset_id": 1,
+          "status": "available"
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "get_asset_by_asset_tag",
+        {
+          "asset_tag": "YD-LOADER-01"
+        }
+      ],
+      [
+        "create_maintenance_event",
+        {
+          "asset_id": 1,
+          "event_type": "preventive_service",
+          "scheduled_date": "2025-04-10",
+          "technician": "Technician_42",
+          "cost": 750
+        }
+      ]
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM maintenance_events WHERE id>5 AND asset_id=1 AND event_type='preventive_service' AND scheduled_date='2025-04-10' AND completed_date='2025-04-12' AND technician='Technician_42' AND cost=750), EXISTS(SELECT 1 FROM assets WHERE id=1 AND status='available'), EXISTS(SELECT 1 FROM maintenance_events WHERE id>5 AND asset_id=1)",
+    "answer": "Recorded preventive maintenance for YD-LOADER-01, scheduled 2025-04-10, completed 2025-04-12, Technician_42, cost 750; asset is available."
+  }
+}

@@ -25,7 +25,8 @@ class Budget:
             db.execute("BEGIN IMMEDIATE")
             count, total = db.execute("SELECT count(*),coalesce(sum(reserved),0) FROM requests").fetchone()
             hc, ht = db.execute("SELECT count(*),coalesce(sum(reserved),0) FROM holds WHERE hold_key!=?", (key,)).fetchone()
-            if count + hc + 1 > self.max_requests or total + ht + tokens > self.max_tokens:
+            if ((self.max_requests is not None and count + hc + 1 > self.max_requests)
+                    or (self.max_tokens is not None and total + ht + tokens > self.max_tokens)):
                 raise BudgetExceeded("global_budget_exhausted")
             db.execute("INSERT OR REPLACE INTO holds VALUES(?,?)", (key, tokens))
             db.commit()
@@ -47,7 +48,8 @@ class Budget:
             hc, ht = db.execute("SELECT count(*),coalesce(sum(reserved),0) FROM holds WHERE hold_key!=?", (consume_hold or "",)).fetchone()
             if consume_hold and not db.execute("SELECT 1 FROM holds WHERE hold_key=?", (consume_hold,)).fetchone():
                 raise BudgetExceeded("finalization_hold_missing")
-            if count + hc >= self.max_requests or total + ht + upper > self.max_tokens:
+            if ((self.max_requests is not None and count + hc >= self.max_requests)
+                    or (self.max_tokens is not None and total + ht + upper > self.max_tokens)):
                 raise BudgetExceeded("global_budget_exhausted")
             cursor = db.execute("INSERT INTO requests(request_key,stage,reserved,status,started) VALUES(?,?,?,?,?)",
                                 (key, stage, upper, "in_flight", now()))
@@ -73,7 +75,7 @@ class Budget:
                 "unknown_usage_requests": unknown, "held_requests": hc, "held_tokens": ht}
 
 
-async def api_request(config, kwargs, budget, key, stage, folder, *, consume_hold=None):
+async def _api_request_once(config, kwargs, budget, key, stage, folder, *, consume_hold=None):
     from openai import AsyncOpenAI
     if not os.environ.get(config.api_key_env, "").strip():
         raise ValueError("missing_api_key_environment_variable: " + config.api_key_env)
@@ -107,6 +109,11 @@ async def api_request(config, kwargs, budget, key, stage, folder, *, consume_hol
         # Preserve provider failure evidence without persisting Authorization headers.
         error = {"type": type(exc).__name__, "status_code": getattr(exc, "status_code", None),
                  "body": getattr(exc, "body", None), "usage_status": "unknown_reserved"}
+        causes, current = [], exc
+        while current is not None and len(causes) < 5:
+            causes.append({"type": type(current).__name__, "message": str(current)[:2000]})
+            current = current.__cause__ or current.__context__
+        error["causes"] = causes
         secret = os.environ.get(config.api_key_env, "")
         def redact(value):
             if isinstance(value, str):
@@ -120,6 +127,16 @@ async def api_request(config, kwargs, budget, key, stage, folder, *, consume_hol
             return redact(str(value))
         write_json(Path(folder) / "error.json", redact(error))
         raise
+
+
+async def api_request(config, kwargs, budget, key, stage, folder, *, consume_hold=None):
+    from .judge_recovery import request_with_retries
+    return await request_with_retries(_api_request_once, config, kwargs, budget, key, stage, folder,
+                                      consume_hold=consume_hold)
+
+
+# The rate limiter wraps each physical attempt, without multiplying retry loops.
+api_request._single_request = _api_request_once
 
 
 class ScriptedBackend:
@@ -165,9 +182,8 @@ class APIBackend:
                 "model_seconds": time.monotonic() - started}
 
 
-class TrainingActorBackend:
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError("P4 training actor/token-logprob contract is not implemented")
+# Kept at the existing import location; torch is loaded only on actual use.
+from .training.actor import TrainingActorBackend
 
 
 class ProcessEvaluator:

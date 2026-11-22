@@ -1,0 +1,2 @@
+# GPU-only Qwen3.5 linear-attention accelerator; do not install in the CPU env.
+flash-linear-attention==0.6.0

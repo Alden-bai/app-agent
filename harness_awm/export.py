@@ -1,4 +1,5 @@
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 from .io import canonical, file_hash, read_json, rows, verify_seal, write_json
 from .stages import check_manifest
@@ -8,6 +9,11 @@ def tokenize_turn(tokenizer, messages, output):
     prompt = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True)
     full = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": output}],
                                          tokenize=True, add_generation_prompt=False)
+    # Transformers 5 may return a BatchEncoding by default; 4 returns token IDs.
+    if isinstance(prompt, Mapping):
+        prompt = prompt["input_ids"]
+    if isinstance(full, Mapping):
+        full = full["input_ids"]
     if full[:len(prompt)] != prompt or len(full) <= len(prompt):
         raise ValueError("chat_template_does_not_preserve_prompt_prefix")
     return {"input_ids": full, "labels": [-100] * len(prompt) + full[len(prompt):],

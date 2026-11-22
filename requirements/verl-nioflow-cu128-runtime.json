@@ -1,0 +1,18 @@
+{
+  "revision": "7aed6b230776f963fa09509c10d9c3a767d1102c",
+  "source_lock": "verl-runtime.json",
+  "cuda": "12.8",
+  "packages": {
+    "verl": "0.8.0.dev0+awm.numpy2",
+    "torch": "2.11.0",
+    "vllm": "0.20.2",
+    "transformers": "5.22.1",
+    "ray": "2.55.1",
+    "tensordict": "0.10.0",
+    "torchdata": "0.11.0",
+    "numpy": "2.3.5",
+    "liger-kernel": "0.8.5",
+    "flash-linear-attention": "0.6.0",
+    "nvidia-nccl-cu12": "2.28.9"
+  }
+}

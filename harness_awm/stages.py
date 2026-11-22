@@ -9,6 +9,7 @@ from .evaluation import apply_evaluation, evaluate_episode, judge_config_hash
 from .io import canonical, digest, file_hash, now, read_json, rows, verify_seal, write_json
 from .registry import load_registry
 from .runner import EpisodeRunner
+from .tracking import SwanLabTracker, run_config
 
 
 def official_hashes(config):
@@ -92,17 +93,27 @@ def metrics(run):
         v2 = [r for r in results if r.get("judge_protocol") == "rubric_v2"]
         data["judge_v2"] = {"evaluation_statuses": dict(Counter(r["evaluation_status"] for r in v2)),
                             "task_statuses": dict(Counter(r["task_status"] for r in v2)),
-                            "reward_policy": "not_implemented", "provisional_pass_in_confirmed_successes": False}
+                            "reward_policy": "separate_versioned_admission_required",
+                            "reward_policies": dict(Counter(r.get("reward_policy") for r in v2 if r.get("reward_policy"))),
+                            "provisional_pass_in_confirmed_successes": False}
     if (run / "budget.sqlite").exists():
         data["budget"] = Budget(run / "budget.sqlite", 0, 0).summary()
+    if manifest.get("config", {}).get("purpose") == "evaluation":
+        from .evaluation_metrics import summarize, write_reports
+        data["evaluation"] = summarize(run, manifest)
+        write_reports(run, data)
     write_json(run / "metrics.json", data)
     return data
 
 
 async def run_stage(stage, registry, run, config, scripts=None, task_ids=None):
+    if config.actor == "training":
+        raise ValueError("training actor requires harness_awm.training.grpo orchestration")
     if stage not in {"collect", "evaluate"}:
         raise NotImplementedError("only P0-P3 collect/evaluate are implemented")
     tasks, registry_manifest = load_registry(registry)
+    if config.purpose == "evaluation" and (stage != "evaluate" or any(t.split not in {"dev", "test"} for t in tasks)):
+        raise ValueError("evaluation purpose only accepts held-out evaluate tasks")
     if task_ids:
         requested = set(task_ids)
         tasks = [t for t in tasks if t.task_instance_id in requested or f"{t.scenario}:{t.native_task_id}" in requested]
@@ -146,8 +157,11 @@ async def run_stage(stage, registry, run, config, scripts=None, task_ids=None):
     model_sem, judge_sem = asyncio.Semaphore(config.model_concurrency), asyncio.Semaphore(config.judge_concurrency)
     task_map = {t.task_instance_id: t for t in tasks}
     runner = EpisodeRunner(config, budget, judge_sem)
+    tracker = SwanLabTracker(run, config=run_config(config, stage))
+    completed, failed_candidates = 0, 0
 
     async def candidate_job(candidate):
+        nonlocal completed, failed_candidates
         async with worker_sem:
             task = task_map[candidate["task_instance_id"]]
             rid = candidate["rollout_id"]
@@ -156,17 +170,32 @@ async def run_stage(stage, registry, run, config, scripts=None, task_ids=None):
                 if isinstance(actions, dict):
                     actions = actions.get(str(candidate["candidate_id"]), actions.get("*", []))
                 backend = ScriptedBackend(actions)
-            else:
+            elif config.actor == "api":
                 backend = APIBackend(config, budget, model_sem, rid)
+            else:
+                raise ValueError("training actor requires harness_awm.training.grpo orchestration")
             try:
                 return await runner.run(task, run / candidate["path"], rid, backend)
             except Exception as exc:
+                failed_candidates += 1
                 write_json(run / "failures" / (rid + ".json"), {"error": f"{type(exc).__name__}: {exc}"})
                 return None
+            finally:
+                completed += 1
+                tracker.log({"progress/completed_candidates": completed,
+                             "progress/planned_candidates": len(candidates),
+                             "progress/failed_candidates": failed_candidates,
+                             "budget": budget.summary()}, step=completed)
+    failed = True
     try:
         await asyncio.gather(*(candidate_job(c) for c in candidates))
+        failed = False
     finally:
-        report = metrics(run)
+        try:
+            report = metrics(run)
+            tracker.log({"summary": report}, step=completed + 1)
+        finally:
+            tracker.finish(failed=failed or bool(failed_candidates))
     return report
 
 

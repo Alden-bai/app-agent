@@ -152,23 +152,43 @@ TOOL_HELP = {
     "inspect_schema": {"snapshot": "initial|final", "table": "optional real table name; omit to list tables"},
     "query_snapshot": {"snapshot": "initial|final", "sql": "ONE read-only SQLite SELECT, table names local to the selected snapshot", "params": "optional positional list or named parameter object"},
     "compare_records": {"table": "real table name", "key": "object of all primary-key or unique-key columns to non-null values"},
-    "read_evidence": {"evidence_id": "existing program-assigned evidence ID", "offset": "optional character offset, default 0; follow next_offset"},
+    "read_evidence": {"evidence_id": "existing program-assigned evidence ID; to continue a page, use its source_evidence_id", "offset": "optional character offset, default 0; follow next_offset; null means the source is fully read"},
 }
 
 
 def model_view(records, max_bytes=60000):
     """Bounded previews; metadata never claims the preview is complete evidence."""
-    result, used = {}, 0
+    # Reserve content for the latest execution facts before recent queries can
+    # exhaust the preview budget. Keep the output in original evidence-ID order.
+    latest = {}
     for eid, row in reversed(list(records.items())):
+        if row["kind"] in {"runtime", "trajectory", "final_answer"}:
+            latest.setdefault(row["kind"], eid)
+    priority = [latest[kind] for kind in ("runtime", "trajectory", "final_answer") if kind in latest]
+    order = priority + [eid for eid in reversed(records) if eid not in priority]
+    result, used = {}, 0
+    for eid in order:
+        row = records[eid]
         text = canonical(row["content"])
         allowance = max(0, min(3200, max_bytes - used))
         preview = text.encode()[:allowance].decode("utf-8", errors="ignore")
         complete = preview == text
-        view = {k: row[k] for k in ("id", "kind", "valid", "error", "truncated", "objective", "affected_items") if k in row}
+        # Query history is discarded when the runtime rebuilds its context.
+        # Keep provenance outside the bounded content preview so identical rows
+        # from initial/final snapshots remain distinguishable, even when hidden.
+        view = {k: row[k] for k in ("id", "kind", "valid", "error", "truncated", "objective", "affected_items",
+                                   "tool", "arguments", "snapshot_hashes") if k in row}
         view.update(content=row["content"] if complete else {"preview": preview, "total_chars": len(text), "read_with": "read_evidence"},
                     view_truncated=not complete)
         if row["kind"] == "source":
             view["source_id"] = row["content"]["id"]
+        elif row["kind"] == "evidence_page":
+            # The source record retains its query provenance even if both this
+            # page and the source content have exhausted their preview allowance.
+            # Preserve the cursor too, so truncation never forces guessed offsets.
+            for key in ("source_evidence_id", "source_kind", "offset", "next_offset", "total_chars"):
+                if key in row["content"]:
+                    view[key] = row["content"][key]
         result[eid] = view
         used += len(canonical(view).encode())
-    return dict(reversed(list(result.items())))
+    return {eid: result[eid] for eid in records}

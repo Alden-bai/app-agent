@@ -3,10 +3,10 @@ import asyncio
 import time
 from pathlib import Path
 
-from .backend import APIBackend, BudgetExceeded
+from .backend import APIBackend, BudgetExceeded, TrainingActorBackend
 from .contracts import EpisodeResult
 from .evaluation import apply_evaluation, evaluate_episode
-from .io import Recorder, canonical, digest, seal, write_json
+from .io import Recorder, canonical, digest, foreign_key_violations, seal, write_json
 from .protocol import ProtocolError, estimate_tokens, parse_action, validate_call
 from .protocol_v2 import (DISCOVERY_ACTIONS, PROTOCOL, SYSTEM_PROMPT, ObservationsV2,
                           ToolCatalog, WorkingContext, context_limit, fits_context)
@@ -74,6 +74,11 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
     try:
         recorder.emit("lifecycle", state="PREPARING")
         await env.prepare()
+        if runner.skill_bank is not None:
+            skill_message = runner.skill_bank.inject(task, env.tools, folder, recorder)
+            if skill_message is not None:
+                base.append(skill_message)
+                full_messages.append(skill_message)
         catalog = ToolCatalog(env.tools, config.observation_chars)
         startup = {"source": "harness", "tool_index": catalog.page(names_only=True)}
         base.append({"role": "user", "content": canonical(startup)})
@@ -106,7 +111,7 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
                 recorder.emit("context_compacted", before_estimate=before, after_estimate=estimate_tokens(messages))
             if not fits_context(messages, config.max_output_tokens, limit, margin):
                 enter_final("context_limit")
-            if accounted + estimate_tokens(messages) + config.max_output_tokens + 512 + final_reserve > config.episode_token_limit:
+            if config.episode_token_limit is not None and (accounted + estimate_tokens(messages) + config.max_output_tokens + 512 + final_reserve > config.episode_token_limit):
                 enter_final("token_limit")
             output_tokens = config.max_output_tokens
             if finalizing:
@@ -115,7 +120,7 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
                 if estimate_tokens(messages) > final_input or not fits_context(messages, output_tokens, limit, margin):
                     reason = "context_limit"
                     break
-                if accounted + estimate_tokens(messages) + output_tokens + 512 > config.episode_token_limit:
+                if config.episode_token_limit is not None and (accounted + estimate_tokens(messages) + output_tokens + 512 > config.episode_token_limit):
                     reason = "token_limit"
                     break
             count = estimate_tokens(messages)
@@ -136,6 +141,8 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
                     if isinstance(backend, APIBackend):
                         response = await backend.generate(messages, turn_dir, turn, output_tokens=output_tokens,
                                                           final_hold=hold_key if finalizing else None)
+                    elif isinstance(backend, TrainingActorBackend):
+                        response = await backend.generate(messages, turn_dir, turn, output_tokens=output_tokens)
                     else:
                         response = await backend.generate(messages, turn_dir, turn)
             except BudgetExceeded:
@@ -255,24 +262,46 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
                         before_state_ref=before, commit_status="outcome_unknown")
                     phase = "business_call"
                     tool_started = time.monotonic()
+                    transport_status = "response"
                     try:
                         remaining = config.episode_timeout - (time.monotonic() - started)
                         async with asyncio.timeout(max(.001, remaining - config.final_timeout)):
                             returned = await env.call(action["name"], action["arguments"])
                     except BaseException as exc:
-                        integrity = "outcome_unknown"
-                        item["tool_response"] = {"tool_call_id": tc_id, "content": canonical({"source": "harness",
-                            "transport_error": type(exc).__name__, "commit_status": "outcome_unknown"})}
                         recorder.emit("tool_outcome_unknown", turn_id=turn, call_event_id=call_id)
-                        raise
+                        if not config.recover_tool_errors or not isinstance(exc, Exception):
+                            integrity = "outcome_unknown"
+                            item["tool_response"] = {"tool_call_id": tc_id, "content": canonical({"source": "harness",
+                                "transport_error": type(exc).__name__, "commit_status": "outcome_unknown"})}
+                            raise
+                        # Let the actor inspect state and choose a correction. Never replay a write here.
+                        transport_status, status = "error", "tool_error"
+                        corrections += 1
+                        returned = {"isError": True, "transport_error": type(exc).__name__,
+                            "message": str(exc), "commit_status": "outcome_unknown",
+                            "instruction": "The tool call failed and may have committed changes. Inspect current state using available tools before retrying a write. Correct the arguments or choose another tool, then verify the requested result."}
+                        recorder.emit("tool_error_feedback", "model_visible", turn,
+                                      call_event_id=call_id, error=type(exc).__name__)
                     finally:
                         tool_seconds += time.monotonic() - tool_started
-                    recorder.emit("tool_completed", "runtime_returned", turn, call_event_id=call_id,
-                        raw_result_ref=recorder.blob(returned, "runtime_returned"), transport_status="response",
-                        mcp_is_error=returned.get("isError", False), commit_status="response_received",
-                        before_state_ref=before, after_state_ref=env.audit(f"{turn:04d}_after"),
+                    after = env.audit(f"{turn:04d}_after")
+                    recorder.emit("tool_completed" if transport_status == "response" else "tool_failed",
+                        "runtime_returned", turn, call_event_id=call_id,
+                        raw_result_ref=recorder.blob(returned, "runtime_returned"), transport_status=transport_status,
+                        mcp_is_error=returned.get("isError", False),
+                        commit_status="response_received" if transport_status == "response" else "outcome_unknown",
+                        before_state_ref=before, after_state_ref=after,
                         tool_seconds=time.monotonic() - tool_started)
-                    visible, _ = observations.present(returned)
+                    observed = returned
+                    violations = after.get("foreign_key_violations", [])
+                    if violations:
+                        corrections += 1
+                        observed = {"tool_result": returned, "state_validation": {
+                            "error": "foreign_key_violation", "violations": violations,
+                            "instruction": "The tool returned, but invalid references remain in the database. Writes may already be committed. Query the referenced objects and correct or remove invalid references using available tools, then verify. Do not claim success until corrected."}}
+                        recorder.emit("state_validation_feedback", "model_visible", turn,
+                                      violations=violations, after_state_ref=after)
+                    visible, _ = observations.present(observed)
                     rendered = {"source": "awm", **visible}
                 malformed = 0
             except ProtocolError as exc:
@@ -338,7 +367,8 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
             try:
                 final_hash = env.freeze()
                 terminal = "trusted"
-                recorder.emit("snapshot_created", final_hash=final_hash)
+                recorder.emit("snapshot_created", final_hash=final_hash,
+                              foreign_key_violations=foreign_key_violations(folder / "final.db"))
             except Exception as exc:
                 terminal, error = "untrusted", f"snapshot_failed: {exc}"
         elif not quiet:
@@ -365,7 +395,7 @@ async def run_episode(runner, task, folder, rollout_id, backend, *, evaluate_aft
         termination_reason=reason, termination_origin=origin, termination_phase=termination_phase,
         completion_status=completion, execution_integrity=integrity, terminal_state_status=terminal,
         turns=turns, tool_calls=calls, execution_metrics=execution_metrics,
-        test_only=config.actor == "scripted" or config.judge == "mock", error=error).model_dump()
+        test_only=config.actor == "scripted" or config.judge == "mock" or getattr(backend, "test_only", False), error=error).model_dump()
     recorder.emit("execution_closed", termination_reason=reason, execution_integrity=integrity,
                   elapsed_seconds=time.monotonic() - started, token_count_or_estimate=accounted)
     write_json(folder / "episode_result.json", result)

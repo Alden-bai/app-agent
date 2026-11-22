@@ -24,7 +24,7 @@ def summarize(results, baseline=None):
             "unknown_reasons": dict(unknowns), "historical_transitions": dict(transitions),
             "usage": {k: sum(r["usage"].get(k, 0) for r in results) for k in (
                 "physical_requests", "total_tokens", "tokens_accounted_or_reserved", "unknown_usage_requests", "query_calls", "query_errors")},
-            "reward_policy": "not_implemented", "independent_accuracy_measured": False,
+            "reward_policy": "separate_versioned_admission_required", "independent_accuracy_measured": False,
             "limitations": ["Historical and model labels are not human gold.", "Provisional passes are not confirmed successes.",
                             "Query recovery and false-positive/negative rates require evidence review; status counts alone cannot establish them."]}
 

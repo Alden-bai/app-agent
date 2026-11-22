@@ -1,0 +1,25 @@
+{
+  "protocol_id": "awm-single-json-v2",
+  "purpose": "evaluation",
+  "actor": "training",
+  "judge": "api",
+  "judge_protocol": "rubric_v2",
+  "isolation": "strict",
+  "judge_api": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-6-luna",
+    "api_key_env": "OPENAI_API_KEY",
+    "reasoning_effort": "none",
+    "temperature": 0,
+    "context_limit": 128000,
+    "timeout": 180
+  },
+  "candidates_per_task": 1,
+  "max_physical_requests": 1000,
+  "max_total_tokens": 10000000,
+  "context_limit": 32768,
+  "max_output_tokens": 2048,
+  "max_turns": 32,
+  "max_tool_calls": 32,
+  "seed": 20261106
+}

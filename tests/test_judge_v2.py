@@ -213,6 +213,58 @@ def test_full_evidence_is_recoverable_after_preview_truncation(snapshots):
     with pytest.raises(ValueError): store.read_evidence(bad["id"])
 
 
+@pytest.mark.parametrize("max_bytes", [60000, 0])
+def test_query_provenance_survives_identical_results_and_truncation(snapshots, max_bytes):
+    store = EvidenceStore(*snapshots)
+    rows = [store.call("query_snapshot", {
+        "snapshot": snapshot, "sql": "SELECT id FROM items WHERE id=?", "params": [0],
+    }, objective="compare_initial_and_final", affected_items=["R1"])
+        for snapshot in ("initial", "final")]
+    assert rows[0]["content"] == rows[1]["content"]
+    before = copy.deepcopy(store.records)
+    view = model_view(store.records, max_bytes=max_bytes)
+    for row, snapshot in zip(rows, ("initial", "final")):
+        shown = view[row["id"]]
+        assert shown["tool"] == "query_snapshot"
+        assert shown["arguments"] == {
+            "snapshot": snapshot, "sql": "SELECT id FROM items WHERE id=?", "params": [0],
+        }
+        assert shown["snapshot_hashes"] == store.hashes
+        assert shown["view_truncated"] == (max_bytes == 0)
+    assert store.records == before
+    store.verify()
+
+
+def test_paged_query_retains_source_link_when_previews_are_hidden(snapshots):
+    store = EvidenceStore(*snapshots)
+    source = evidence_call(store, "SELECT * FROM items", "initial")
+    page = store.call("read_evidence", {"evidence_id": source["id"], "offset": 0},
+                      objective="inspect_initial_rows", affected_items=["R1"])
+    next_page = store.call("read_evidence", {
+        "evidence_id": source["id"], "offset": page["content"]["next_offset"],
+    }, objective="inspect_initial_rows", affected_items=["R1"])
+    view = model_view(store.records, max_bytes=0)
+    for row in (page, next_page):
+        shown = view[row["id"]]
+        assert shown["view_truncated"]
+        assert shown["tool"] == "read_evidence"
+        assert shown["arguments"] == row["arguments"]
+        assert shown["source_evidence_id"] == source["id"]
+        assert shown["source_kind"] == "query"
+        assert view[shown["source_evidence_id"]]["arguments"]["snapshot"] == "initial"
+
+
+def test_failed_query_keeps_provenance_without_becoming_valid(snapshots):
+    store = EvidenceStore(*snapshots)
+    failed = evidence_call(store, "SELECT missing_column FROM items", "initial")
+    shown = model_view(store.records)[failed["id"]]
+    assert shown["arguments"]["snapshot"] == "initial"
+    assert shown["arguments"]["sql"] == "SELECT missing_column FROM items"
+    assert not shown["valid"] and shown["error"] == failed["error"]
+    with pytest.raises(ValueError, match="cannot_promote_failed_evidence"):
+        store.read_evidence(failed["id"])
+
+
 def test_material_unresolved_and_all_pass_is_rejected():
     original, rubric = rubric_fixture()
     rubric["unresolved"] = [{"issue": "year", "affected_items": ["R1"], "needed": "target year"}]
@@ -287,6 +339,67 @@ def run_judge(bundle, tmp_path, monkeypatch, answers, *, config=None, budget_req
 def query(sql="SELECT value FROM items WHERE id=1", objective="value"):
     return {"action": "query", "queries": [{"tool": "query_snapshot", "objective": objective, "affected_items": ["R1"],
             "arguments": {"snapshot": "final", "sql": sql}}]}
+
+
+def test_judge1_same_value_duplicates_are_normalized_without_new_verdict(bundle, tmp_path, monkeypatch):
+    value = assessment(refs=["E00002"])
+    raw = canonical(value).replace('"established":true', '"established":true,"established":true')
+    result, responder = run_judge(bundle, tmp_path, monkeypatch, [raw])
+    assert result["evaluation_valid"] and result["business_label"] == "pass"
+    assert responder.calls == 1
+    assert list((tmp_path / "results").glob("*/attempt_*/calls/0000/normalization.json"))
+
+
+def test_readable_illegal_state_reaches_judge_and_can_be_confirmed_failure(bundle, tmp_path, monkeypatch):
+    episode = Path(bundle["episode"])
+    with sqlite3.connect(episode / "final.db") as db:
+        db.executescript("CREATE TABLE parent(id INTEGER PRIMARY KEY); "
+            "CREATE TABLE child(id INTEGER PRIMARY KEY,pid INTEGER REFERENCES parent(id)); "
+            "INSERT INTO child VALUES(1,99); UPDATE items SET value=10;")
+    with (episode / "events.jsonl").open("a") as handle:
+        handle.write(canonical({"event_type": "snapshot_created", "time": "2026-01-01T00:00:01Z",
+            "foreign_key_violations": [{"table": "child", "rowid": 1, "parent": "parent", "foreign_key_id": 0}]}) + "\n")
+    seal(episode)
+    bundle = prepare_input(episode, bundle["original"], bundle["rubric"])
+    def finish(request):
+        evidence = json.loads(request["messages"][1]["content"])["evidence"]
+        assert any(r["kind"] == "state_validation" for r in evidence.values())
+        fact = next(r for r in evidence.values() if r.get("tool") == "query_snapshot")
+        assert fact["content"]["rows"] == [[10]]
+        return assessment(("fail", "pass"), refs=[fact["id"]])
+    result, _ = run_judge(bundle, tmp_path, monkeypatch, [query(), finish])
+    assert result["evaluation_valid"] and result["task_status"] == "failed"
+    assert result["sample_validity"]["status"] == "valid"
+
+
+@pytest.mark.parametrize("runtime_name", ["primary", "recovery"])
+def test_rebuilt_query_and_review_contexts_keep_snapshot_provenance(bundle, tmp_path, monkeypatch, runtime_name):
+    from harness_awm import judge_runtime
+    from scripts.sft_recovery_support import recovery_judge
+    runtime = judge_runtime if runtime_name == "primary" else recovery_judge()
+    action = {"action": "query", "queries": [
+        {"tool": "query_snapshot", "objective": "compare_initial_and_final", "affected_items": ["R1"],
+         "arguments": {"snapshot": snapshot, "sql": "SELECT id FROM items WHERE id=?", "params": [1]}}
+        for snapshot in ("initial", "final")
+    ]}
+    def finish(request):
+        # Both runtimes deliberately replace the previous query conversation.
+        assert [m["role"] for m in request["messages"]] == ["system", "user"]
+        context = json.loads(request["messages"][-1]["content"])
+        queries = {r["arguments"]["snapshot"]: r for r in context["evidence"].values()
+                   if r.get("tool") == "query_snapshot"}
+        assert set(queries) == {"initial", "final"}
+        assert queries["initial"]["content"] == queries["final"]["content"]
+        assert all(r["arguments"]["params"] == [1] for r in queries.values())
+        return assessment(refs=[queries["final"]["id"]])
+    responder = Responder([action, finish, finish])
+    monkeypatch.setattr(runtime, "api_request", responder)
+    config = RunConfig(judge="api", judge_protocol="rubric_v2", judge_v2={"review_all_decisions": True})
+    result = asyncio.run(runtime.evaluate_input(bundle, config, Budget(tmp_path / "budget.sqlite", 5, 2_000_000),
+                                               asyncio.Semaphore(1), tmp_path / "results"))
+    assert result["evaluation_status"] == "valid", result
+    assert responder.calls == 3
+    assert verify_input(bundle) == bundle
 
 
 def test_frozen_replay_caches_first_valid_and_never_calculates_reward(bundle, tmp_path, monkeypatch):
@@ -406,15 +519,18 @@ def test_report_separates_provisional_from_confirmed(bundle, tmp_path, monkeypat
 
 def test_v2_metrics_do_not_use_reward_for_success(tmp_path):
     from harness_awm.stages import metrics
+    from harness_awm.reward_values import VERSION
     candidates = [{"path": f"episodes/{i}", "task_instance_id": str(i), "scenario": "fixture"} for i in range(2)]
     write_json(tmp_path / "manifest.json", {"candidates": candidates})
-    for candidate, status in zip(candidates, ("confirmed_pass", "provisional_pass")):
+    for candidate, status, reward in zip(candidates, ("confirmed_pass", "provisional_pass"), (1, 0.3)):
         write_json(tmp_path / candidate["path"] / "episode_result.json", {
             "judge_protocol": "rubric_v2", "evaluation_valid": True, "evaluation_status": "valid", "task_status": status,
-            "reward": None, "reward_valid": False, "termination_reason": "finish", "lifecycle": "SETTLED"})
+            "reward": reward, "reward_valid": True, "reward_policy": VERSION,
+            "termination_reason": "finish", "lifecycle": "SETTLED"})
     result = metrics(tmp_path)
     assert result["valid_settlements"] == 2 and result["valid_successes"] == 1
     assert result["judge_v2"]["task_statuses"]["provisional_pass"] == 1
+    assert result["judge_v2"]["reward_policies"] == {VERSION: 2}
 
 
 def test_cli_prepares_and_reports_without_model_calls(bundle, tmp_path):

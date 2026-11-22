@@ -4,9 +4,10 @@ import shutil
 import socket
 import subprocess
 import time
+import zipfile
 from pathlib import Path
-from .io import db_check, db_fingerprint, digest, file_hash, read_json, snapshot, write_json
-from .isolation import clean_env, command, stop_process, wait_process
+from .io import db_check, db_fingerprint, digest, file_hash, foreign_key_violations, read_json, snapshot, write_json
+from .isolation import clean_env, command, private_root_command, stop_process, wait_process
 
 WORKER = Path(__file__).with_name("worker.py").resolve()
 
@@ -37,7 +38,7 @@ async def worker(config, mode, folder, payload):
     argv = [config.runtime_python, str(WORKER), mode, config.official_root, str(request), str(output)]
     argv = command(config, argv, [folder], [WORKER, Path(config.official_root) / "awm"])
     with (folder / "worker.log").open("w") as log:
-        process = subprocess.Popen(argv, env=clean_env(config.timezone),
+        process = subprocess.Popen(argv, env=clean_env(config.timezone), stdin=subprocess.DEVNULL,
                                    stdout=log, stderr=log, start_new_session=True)
         try:
             await wait_process(process, config.evaluator_timeout)
@@ -77,18 +78,25 @@ class AWMEnvAdapter:
         snapshot(self.folder / "initial.db", self.runtime / "working.db")
         self.port = self.free_port()
         # Generate official server outside execution sandbox, then expose only generated code + working DB.
-        build = self.folder / "server_build"
-        build.mkdir()
-        envs = build / "envs.jsonl"
-        envs.write_text(__import__("json").dumps(env) + "\n")
-        await worker(config.model_copy(update={"evaluator_timeout": min(config.evaluator_timeout, config.episode_timeout)}), "generate", build, {"scenario": task.scenario, "envs": str(envs),
-                     "db": str(self.runtime / "working.db"), "port": self.port, "script": str(build / "server.py")})
-        shutil.copyfile(build / "server.py", self.runtime / "server.py")
-        argv = command(config, [config.runtime_python, str(self.runtime / "server.py")], [self.runtime])
+        if config.isolation == 'private-root':
+            bundle = Path(__file__).resolve().parents[1] / 'delivery/nioflow-worlds.zip'
+            with zipfile.ZipFile(bundle) as scripts:
+                (self.runtime / 'server.py').write_bytes(scripts.read(task.environment_code_hash + '.py'))
+            argv = private_root_command(config, self.runtime, 'server')
+        else:
+            build = self.folder / 'server_build'
+            build.mkdir()
+            envs = build / 'envs.jsonl'
+            envs.write_text(__import__('json').dumps(env) + '\n')
+            await worker(config.model_copy(update={'evaluator_timeout': min(config.evaluator_timeout, config.episode_timeout)}),
+                         'generate', build, {'scenario': task.scenario, 'envs': str(envs),
+                         'db': str(self.runtime / 'working.db'), 'port': self.port, 'script': str(build / 'server.py')})
+            shutil.copyfile(build / 'server.py', self.runtime / 'server.py')
+            argv = command(config, [config.runtime_python, str(self.runtime / "server.py")], [self.runtime])
         environ = clean_env(config.timezone)
         environ.update(HOST="127.0.0.1", PORT=str(self.port))
         self.log = (self.folder / "server.log").open("w")
-        self.process = subprocess.Popen(argv, cwd=self.runtime, env=environ,
+        self.process = subprocess.Popen(argv, cwd=self.runtime, env=environ, stdin=subprocess.DEVNULL,
                                         stdout=self.log, stderr=self.log, start_new_session=True)
         import httpx
         async with httpx.AsyncClient(timeout=1, trust_env=False) as http:
@@ -175,9 +183,10 @@ class AWMEnvAdapter:
 
     def audit(self, label):
         path = self.folder / "audit" / (label + ".db")
-        snapshot(self.runtime / "working.db", path)
+        snapshot(self.runtime / "working.db", path,
+                 foreign_keys=self.config.protocol_id != "awm-single-json-v2")
         return {"path": str(path.relative_to(self.folder)), "sha256": file_hash(path),
-                "logical_hash": db_fingerprint(path)}
+                "logical_hash": db_fingerprint(path), "foreign_key_violations": foreign_key_violations(path)}
 
     async def close(self):
         async def cleanup():
@@ -204,6 +213,7 @@ class AWMEnvAdapter:
         if not self.started:
             raise RuntimeError("environment_preparation_incomplete")
         path = self.folder / "final.db"
-        snapshot(self.runtime / "working.db", path)
+        snapshot(self.runtime / "working.db", path,
+                 foreign_keys=self.config.protocol_id != "awm-single-json-v2")
         path.chmod(0o444)
         return file_hash(path)

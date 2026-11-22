@@ -14,6 +14,10 @@ class EpisodeRunner:
     def __init__(self, config, budget, judge_semaphore, env_factory=AWMEnvAdapter):
         self.config, self.budget, self.judge_semaphore = config, budget, judge_semaphore
         self.env_factory = env_factory
+        self.skill_bank = None
+        if config.skills is not None:
+            from .skillbank import SkillBank
+            self.skill_bank = SkillBank(config.skills)
 
     async def run(self, task, folder, rollout_id, backend, *, evaluate_after=True):
         if self.config.protocol_id == "awm-single-json-v2":
@@ -49,7 +53,7 @@ class EpisodeRunner:
                 if count + config.max_output_tokens + config.safety_margin > config.context_limit:
                     reason = "context_limit"
                     break
-                if cumulative_tokens + count + config.max_output_tokens > config.episode_token_limit:
+                if config.episode_token_limit is not None and (cumulative_tokens + count + config.max_output_tokens > config.episode_token_limit):
                     reason = "token_limit"
                     break
                 turns = turn
@@ -166,7 +170,7 @@ class EpisodeRunner:
         result = EpisodeResult(rollout_id=rollout_id, task_instance_id=task.task_instance_id,
             termination_reason=reason, termination_origin=origin, execution_integrity=integrity,
             terminal_state_status=terminal, turns=turns, tool_calls=calls,
-            test_only=config.actor == "scripted" or config.judge == "mock", error=error).model_dump()
+            test_only=config.actor == "scripted" or config.judge == "mock" or getattr(backend, "test_only", False), error=error).model_dump()
         recorder.emit("execution_closed", termination_reason=reason, execution_integrity=integrity,
                       elapsed_seconds=time.monotonic() - started, token_count_or_estimate=cumulative_tokens)
         write_json(folder / "episode_result.json", result)

@@ -25,29 +25,78 @@ def reward_for(classification, *, evaluation_valid, execution_valid, approved, t
     return {"reward_valid": bool(valid), "reward": int(classification == "complete") if valid else None}
 
 
-async def evaluate_episode(folder, task, config, budget, semaphore):
+async def primary_assessment(folder, task, config, budget, semaphore):
+    from .judge_inputs import input_from_manifest
+    from .judge_runtime import evaluate_input
+    from .judge_v2 import RubricError, error_result
+    try:
+        if not config.judge_inputs_manifest:
+            raise ValueError("rubric_v2_requires_judge_inputs_manifest")
+        bundle = input_from_manifest(folder, task, config.judge_inputs_manifest)
+        if bundle["task_instance_id"] != task.task_instance_id:
+            raise ValueError("episode_task_instance_mismatch")
+    except Exception as exc:
+        outcome = error_result(f"{task.scenario}:{task.native_task_id}", task.task_instance_id, str(exc),
+                               status="rubric_error" if isinstance(exc, RubricError) else "evaluation_error")
+        outcome["test_only"] = config.judge != "api"
+        outcome["evaluation_id"] = digest(outcome)
+        write_json(Path(folder) / "evaluations_v2" / ("input_error_" + digest(outcome) + ".json"), outcome)
+        return None, outcome
+    assessment = await evaluate_input(bundle, config, budget, semaphore, Path(folder) / "evaluations_v2")
+    return bundle, assessment
+
+
+async def evaluate_episode(folder, task, config, budget, semaphore, *, primary=None):
     if config.judge_protocol == "rubric_v2":
-        from .judge_inputs import input_from_manifest
-        from .judge_runtime import evaluate_input
-        from .judge_v2 import RubricError, error_result
-        try:
-            if not config.judge_inputs_manifest:
-                raise ValueError("rubric_v2_requires_judge_inputs_manifest")
-            bundle = input_from_manifest(folder, task, config.judge_inputs_manifest)
-            if bundle["task_instance_id"] != task.task_instance_id:
-                raise ValueError("episode_task_instance_mismatch")
-        except Exception as exc:
-            outcome = error_result(f"{task.scenario}:{task.native_task_id}", task.task_instance_id, str(exc),
-                                   status="rubric_error" if isinstance(exc, RubricError) else "evaluation_error")
-            outcome["test_only"] = config.judge != "api"
-            outcome["evaluation_id"] = digest(outcome)
-            write_json(Path(folder) / "evaluations_v2" / ("input_error_" + digest(outcome) + ".json"), outcome)
-            return outcome
-        return await evaluate_input(bundle, config, budget, semaphore, Path(folder) / "evaluations_v2")
+        from .reward_policy import map_reward, settle_reward
+        if primary is None:
+            primary = await primary_assessment(folder, task, config, budget, semaphore)
+        bundle, assessment = primary
+        if bundle is None:
+            return assessment
+        from .reward_values import COMPOSITE_VERSION
+        if config.reward_policy == COMPOSITE_VERSION:
+            # Quality cannot repair an invalid primary assessment. Reuse the
+            # terminal gate, then still run full admission/execution settlement.
+            # Evaluation-only runs retain their independent process assessment.
+            primary = map_reward(assessment, approved=True, execution_valid=True, test_only=False)
+            if config.purpose != "evaluation" and not primary["reward_valid"]:
+                outcome = settle_reward(assessment, bundle, task, config)
+                outcome["trajectory_quality"] = {
+                    "status": "skipped", "reason": "invalid_primary_assessment",
+                    "assessment": None, "reviewed": False,
+                    "usage": {"physical_requests": 0, "total_tokens": 0},
+                }
+                write_json(Path(folder) / "rewards_v2" / (digest(outcome) + ".json"), outcome)
+                return outcome
+            if (assessment.get("business_label"), assessment.get("task_status")) == ("fail", "failed"):
+                # Settle first: a failure label alone does not establish an admitted
+                # zero reward. Keep all source, execution and admission checks.
+                outcome = settle_reward(assessment, bundle, task, config)
+                if outcome["reward_valid"] and outcome["reward"] == 0:
+                    outcome["trajectory_quality"] = {
+                        "status": "skipped", "reason": "confirmed_zero_reward",
+                        "assessment": None, "reviewed": False,
+                        "usage": {"physical_requests": 0, "total_tokens": 0},
+                    }
+                    write_json(Path(folder) / "rewards_v2" / (digest(outcome) + ".json"), outcome)
+                    return outcome
+            from .trajectory_quality import evaluate_trajectory
+            try:
+                quality = await evaluate_trajectory(
+                    bundle, assessment, config, budget, semaphore, Path(folder) / "trajectory_quality")
+            except (ValueError, KeyError, OSError) as exc:
+                quality = {"status": "error", "error": str(exc)}
+            assessment = dict(assessment, trajectory_quality=quality)
+        outcome = settle_reward(assessment, bundle, task, config)
+        write_json(Path(folder) / "rewards_v2" / (digest(outcome) + ".json"), outcome)
+        return outcome
     folder = Path(folder)
     verify_seal(folder)
     result = read_json(folder / "episode_result.json")
     trace = read_json(folder / "trajectory.json")
+    if not task.verifier_ref or not task.verifier_hash:
+        raise ValueError("official_judge_requires_frozen_verifier; this task may be Judge V2 only")
     verifier = read_json(task.verifier_ref)
     if digest(verifier) != task.verifier_hash:
         raise ValueError("verifier_hash_mismatch")
@@ -137,10 +186,14 @@ def apply_evaluation(folder, evaluation):
     for key in ("evaluation_id", "evaluation_status", "outcome_classification", "official_pass", "reward_valid", "reward", "test_only"):
         result[key] = evaluation[key]
     result["evaluation_valid"] = evaluation["evaluation_valid"]
+    for key in ("reward_policy", "reward_admission_id", "reward_exclusion", "reward_components", "trajectory_quality"):
+        result[key] = evaluation.get(key)
     if evaluation.get("schema_version") == "awm-judge-result-v2":
         result.update(judge_protocol="rubric_v2", business_label=evaluation["business_label"], task_status=evaluation["task_status"])
     else:
         result.update(judge_protocol="official", business_label=None, task_status=None)
+    if result.get("trajectory_quality"):
+        result["process_status"] = result["trajectory_quality"]["status"]
     result["lifecycle"] = "EVAL_PENDING" if evaluation["evaluation_status"] in {"pending", "evaluation_error", "rubric_error"} else "SETTLED"
     write_json(path, result)
     return result

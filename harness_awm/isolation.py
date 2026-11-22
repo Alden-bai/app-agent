@@ -1,6 +1,8 @@
 """Linux filesystem isolation. Networking is loopback/shared, not a network sandbox."""
 import asyncio
+import json
 import os
+import shutil
 import signal
 import subprocess
 from pathlib import Path
@@ -10,6 +12,14 @@ def runtime_info(python):
     import json
     output = subprocess.check_output([python, "-c", "import json,sys; print(json.dumps([sys.prefix,sys.base_prefix]))"], text=True)
     return [Path(p).resolve() for p in json.loads(output)]
+
+
+def private_root_command(config, folder, operation, *args):
+    status = Path('/proc/self/status').read_text().splitlines()
+    caps = int(next(line.split()[1] for line in status if line.startswith('CapEff:')), 16)
+    prefix = [] if caps & (1 << 18) else ['unshare', '--user', '--map-root-user', '--']
+    return [*prefix, config.runtime_python, '-I', '-B', str(Path(__file__).with_name('private_root.py')),
+            operation, str(folder), *map(str, args)]
 
 
 def command(config, argv, writable, readonly=()):
@@ -25,7 +35,22 @@ def command(config, argv, writable, readonly=()):
             link = interpreter.parent / link
         roots.append(link.parent.parent.absolute())
     roots += [Path(p).absolute() for p in readonly]
-    cmd = ["bwrap", "--die-with-parent", "--new-session", "--unshare-user", "--unshare-pid",
+    if config.isolation == "landlock":
+        writable = [str(Path(p).resolve()) for p in writable]
+        scratch = Path(writable[0]) / ".tmp"
+        scratch.mkdir(mode=0o700, exist_ok=True)
+        roots += [Path("/dev/urandom"), Path("/dev/random")]
+        policy = {"readonly": [str(p) for p in dict.fromkeys(roots) if p.exists()],
+                  "writable": [*writable, "/dev/null"],
+                  "cwd": writable[0], "tmp": str(scratch),
+                  # Python discovers awm by listing its parent; grant no file reads there.
+                  "listdirs": [str(Path(config.official_root))] if Path(config.official_root) / "awm" in roots else []}
+        return [config.runtime_python, str(Path(__file__).with_name("landlock.py")),
+                json.dumps(policy), *argv]
+    if config.isolation != "strict":
+        raise ValueError("unknown isolation backend")
+    bwrap = shutil.which("bwrap") or "bwrap"
+    cmd = [bwrap, "--die-with-parent", "--new-session", "--unshare-user", "--unshare-pid",
            "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp"]
     for path in dict.fromkeys(roots):
         if path.exists():
@@ -38,7 +63,7 @@ def command(config, argv, writable, readonly=()):
 
 
 def clean_env(timezone):
-    return {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "TZ": timezone,
+    return {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "TZ": timezone, "OPENBLAS_NUM_THREADS": "1",
             "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1", "HOME": "/tmp"}
 
 

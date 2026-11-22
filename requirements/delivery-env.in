@@ -1,0 +1,2 @@
+-e ./agent-world-model
+-e .[test]

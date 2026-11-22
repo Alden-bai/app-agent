@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "episodes": 10,
+  "sealed_files": 367,
+  "source_path_map": {
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibrated/e_commerce_marketplace_10/calibration.json": "calibration/history/controls/e_commerce_marketplace_10/calibration.json",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/e_commerce_marketplace_10/complete": "calibration/history/episodes/e_commerce_marketplace_10/complete",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/e_commerce_marketplace_10/positive_replay": "calibration/history/episodes/e_commerce_marketplace_10/positive_replay",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/e_commerce_marketplace_10/partial": "calibration/history/episodes/e_commerce_marketplace_10/partial",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/e_commerce_marketplace_10/unexecuted": "calibration/history/episodes/e_commerce_marketplace_10/unexecuted",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/e_commerce_marketplace_10/redundant_quality_control": "calibration/history/episodes/e_commerce_marketplace_10/redundant_quality_control",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibrated/membership_management_2/calibration.json": "calibration/history/controls/membership_management_2/calibration.json",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/membership_management_2/complete": "calibration/history/episodes/membership_management_2/complete",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/membership_management_2/positive_replay": "calibration/history/episodes/membership_management_2/positive_replay",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/membership_management_2/partial": "calibration/history/episodes/membership_management_2/partial",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/membership_management_2/unexecuted": "calibration/history/episodes/membership_management_2/unexecuted",
+    "/root/awm-agent-train/runs/grpo_full_2746_400steps_deepseek_20261113_v5/calibration-deepseek-v3/membership_management_2/redundant_quality_control": "calibration/history/episodes/membership_management_2/redundant_quality_control"
+  },
+  "status": "historical_only; current Judge hash differs; recalibration required"
+}

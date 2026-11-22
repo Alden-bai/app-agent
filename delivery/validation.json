@@ -1,0 +1,48 @@
+{
+  "schema_version": "awm-delivery-validation-v1",
+  "tests": {
+    "passed": 83,
+    "failed": 0,
+    "batches": {
+      "test_training_delivery": 5,
+      "test_training_verl": 56,
+      "test_training_verl_sft": 11,
+      "test_grpo_null_penalty": 11
+    },
+    "runtime": "existing PyTorch 2.10.0+cpu / pinned veRL; small-model and offline contracts"
+  },
+  "frozen_data_audit": {
+    "passed": true,
+    "split_counts": {
+      "sft_trajectories": 758,
+      "grpo_train": 2746,
+      "validation": 589,
+      "test": 588
+    },
+    "source_files": 27443,
+    "sft_trajectories": 758,
+    "sft_turn_samples": 6714,
+    "masked_turns": 357,
+    "max_tokens": 17743,
+    "weights_loaded": false,
+    "judge_requests": 0
+  },
+  "installation": {
+    "execution_environment": "fresh install and real setup_delivery.py env succeeded; pip check passed",
+    "sft": "full dependency lock resolved; GPU environment installation pending on target",
+    "grpo": "full dependency lock resolved; GPU environment installation pending on target"
+  },
+  "model_weights_downloaded": false,
+  "paid_judge_requests": 0,
+  "target_gpu_training_validated": false,
+  "pending_target_checks": [
+    "A100 sm_80 and CUDA driver",
+    "8-rank NCCL",
+    "longest SFT sample forward/backward",
+    "fresh Judge control calibration",
+    "GRPO rollout/weight synchronization and update",
+    "8-shard checkpoint and HF export reload"
+  ],
+  "calibration": "historical evidence preserved and sealed; current Judge implementation requires fresh calibration",
+  "artifact_relocation_check": "see archive-adjacent acceptance JSON produced after packaging"
+}

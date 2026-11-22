@@ -233,6 +233,18 @@ class RunnerV2Tests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(result["execution_metrics"]["finalization_attempted"], result)
             self.assertTrue(trace["finished"], result)
 
+    async def test_unlimited_episode_tokens_preserves_execution_and_turn_guard(self):
+        result, trace, _ = await self.run_episode(
+            [call(value=80), finish()], episode_token_limit=None)
+        self.assertEqual(result["tool_calls"], 1)
+        self.assertEqual(result["termination_reason"], "finish")
+        self.assertTrue(trace["finished"])
+        result, trace, _ = await self.run_episode(
+            [call(value=81), finish()], name="unlimited_turn_guard",
+            episode_token_limit=None, max_turns=2)
+        self.assertEqual(result["execution_metrics"]["finalization_trigger"], "max_turns")
+        self.assertTrue(trace["finished"])
+
     async def test_small_context_reports_without_call(self):
         result, trace, _ = await self.run_episode([], context_limit=100)
         self.assertEqual(result["termination_reason"], "context_limit")
@@ -253,6 +265,40 @@ class RunnerV2Tests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["termination_origin"], ["unknown", "user", "runtime"][i])
             with sqlite3.connect(self.root/f"cancel{i}"/"final.db") as db:
                 self.assertEqual(db.execute("select value from items").fetchone()[0], 81)
+
+    async def test_tool_exception_is_visible_and_actor_can_repair(self):
+        class Recoverable(MemoryEnv):
+            async def call(self, name, arguments):
+                if name == "write_value" and arguments["value"] == 81:
+                    await super().call(name, arguments)
+                    raise RuntimeError("write failed after commit; inspect state")
+                return await super().call(name, arguments)
+        result, trace, events = await self.run_episode(
+            [call(value=81), call("read_state"), call(value=80), finish()],
+            env=Recoverable, recover_tool_errors=True)
+        self.assertEqual(result["termination_reason"], "finish")
+        self.assertEqual(result["tool_calls"], 3)
+        self.assertEqual(result["execution_integrity"], "valid")
+        self.assertEqual(result["terminal_state_status"], "trusted")
+        following_input = read_json(self.root / "ep/model_turns/0002/input.json")
+        self.assertIn("write failed after commit", json.dumps(following_input))
+        self.assertIn("outcome_unknown", json.dumps(following_input))
+        self.assertTrue(any(e["event_type"] == "tool_error_feedback" for e in events))
+        self.assertEqual(sum(e["event_type"] == "tool_started" for e in events), 3)
+        with sqlite3.connect(self.root / "ep/final.db") as db:
+            self.assertEqual(db.execute("select value from items").fetchone()[0], 80)
+
+    async def test_recovery_does_not_swallow_user_cancellation(self):
+        class Cancelled(MemoryEnv):
+            async def call(self, name, arguments):
+                await super().call(name, arguments)
+                raise asyncio.CancelledError("user")
+        result, trace, events = await self.run_episode(
+            [call(value=81), finish()], env=Cancelled, recover_tool_errors=True)
+        self.assertEqual(result["termination_reason"], "cancelled")
+        self.assertEqual(result["execution_integrity"], "outcome_unknown")
+        self.assertEqual(result["tool_calls"], 1)
+        self.assertFalse(any(e["event_type"] == "tool_error_feedback" for e in events))
 
     async def test_final_request_can_use_held_request_slot(self):
         self.budget = Budget(self.root/"api_budget.db", 1, 50000)

@@ -115,9 +115,10 @@ class RewardTests(unittest.TestCase):
             self.assertIsNone(reward_for("complete", **{**args, k: v})["reward"])
 
     def test_future_modules_fail_explicitly(self):
-        for cls in (ProcessEvaluator, TrainingActorBackend):
-            with self.assertRaises(NotImplementedError):
-                cls()
+        with self.assertRaises(NotImplementedError):
+            ProcessEvaluator()
+        with self.assertRaises(TypeError):
+            TrainingActorBackend()  # A real policy and tokenizer are mandatory.
 
     def test_training_masks_only_current_response(self):
         class Tokenizer:

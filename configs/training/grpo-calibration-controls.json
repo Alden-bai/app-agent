@@ -1,0 +1,66 @@
+{
+  "membership_management_2": {
+    "calls": [
+      [
+        "update_my_phone_number",
+        {
+          "phone_number": "+1-415-555-2873"
+        }
+      ],
+      [
+        "add_tag_to_my_account",
+        {
+          "tag": "corporate"
+        }
+      ]
+    ],
+    "sql": "SELECT phone_number='+1-415-555-2873', EXISTS(SELECT 1 FROM user_tags WHERE user_id=1 AND tag='corporate'), NOT EXISTS(SELECT tag FROM user_tags WHERE user_id=1 AND tag IN ('vip','early-bird') GROUP BY user_id HAVING count(*)<2) FROM users WHERE id=1"
+  },
+  "e_commerce_marketplace_10": {
+    "calls": [
+      [
+        "update_current_user_profile",
+        {
+          "preferred_game_titles": [
+            "CS2",
+            "Valorant"
+          ],
+          "region": "EU-West",
+          "trade_visibility": "friends_only"
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "update_current_user_profile",
+        {
+          "region": "EU-West"
+        }
+      ]
+    ],
+    "sql": "SELECT json(preferred_game_titles)=json('[\"CS2\",\"Valorant\"]'),region='EU-West',trade_visibility='friends_only' FROM users WHERE id=1"
+  },
+  "fleet_management_6": {
+    "calls": [
+      [
+        "update_driver_profile",
+        {
+          "driver_id": 45,
+          "license_class": "CDL-A",
+          "training_status": "completed",
+          "hire_date": "2023-06-15"
+        }
+      ]
+    ],
+    "partial": [
+      [
+        "update_driver_profile",
+        {
+          "driver_id": 45,
+          "license_class": "CDL-A"
+        }
+      ]
+    ],
+    "sql": "SELECT license_class='CDL-A',training_status='completed',hire_date='2023-06-15' FROM drivers WHERE id=45"
+  }
+}

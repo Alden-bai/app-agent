@@ -15,6 +15,9 @@ def main():
     load_dotenv(ROOT / ".env", override=False)
     parser = argparse.ArgumentParser(description="AWM Harness P0-P3; no paid requests by default")
     sub = parser.add_subparsers(dest="command", required=True)
+    p = sub.add_parser("swanlab-check", help="create a SwanLab connection-check experiment; no model calls")
+    p.add_argument("--run", required=True, help="local directory for SwanLab logs")
+    p.add_argument("--mode", choices=("online", "offline"), default="online")
     p = sub.add_parser("prepare", help="verify cleaning inputs and rebuild frozen initial states")
     p.add_argument("--source", required=True)
     p.add_argument("--output", required=True)
@@ -53,7 +56,10 @@ def main():
         config = RunConfig.model_validate(read_json(args.config))
         config = config.model_copy(update={"official_root": str(Path(config.official_root).resolve()),
                                            "runtime_python": str(Path(config.runtime_python).absolute())})
-    if args.command == "judge-prepare":
+    if args.command == "swanlab-check":
+        from .tracking import check_connection
+        result = check_connection(args.run, args.mode)
+    elif args.command == "judge-prepare":
         from .judge_inputs import load_json, prepare_input
         from .io import canonical
         result = prepare_input(args.episode, load_json(args.original), load_json(args.rubric))

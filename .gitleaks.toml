@@ -18,3 +18,38 @@ condition = "AND"
 paths = ['''^configs/rubric/luna_high_3000/network_retry_20261102\.json$''']
 regexTarget = "line"
 regexes = ['''^\s*"request_key": "[a-f0-9]{64}",?\s*$''']
+
+[[allowlists]]
+description = "Transformers class imported immediately after AutoTokenizer"
+condition = "AND"
+paths = ['''^(harness_awm/training/(local|model_check|sft)|scripts/benchmark_liger_sft)\.py$''']
+regexTarget = "secret"
+regexes = ['''^Qwen3_5ForCausalLM$''']
+
+[[allowlists]]
+description = "Explicit null reward policy in a unit test"
+condition = "AND"
+paths = ['''^tests/test_grpo_null_penalty\.py$''']
+regexTarget = "line"
+regexes = ['''^\s*read_group\(tmp_path, task, config, "p/0", 4, tokenizer, null_reward_policy="zero"\)\s*$''']
+
+[[allowlists]]
+description = "Public dataset identifier used to select a distillation teacher"
+condition = "AND"
+paths = ['''^vendor/verl/(examples/on_policy_distillation_trainer/|tests/special_e2e/|docs/algo/opd\.md$|verl/trainer/config/distillation/|verl/workers/config/distillation\.py$)''']
+regexTarget = "secret"
+regexes = ['''^hiyouga/geometry3k$''']
+
+[[allowlists]]
+description = "veRL padding metadata dictionary key"
+condition = "AND"
+paths = ['''^vendor/verl/verl/protocol\.py$''']
+regexTarget = "secret"
+regexes = ['''^_padding_size_key_x123d$''']
+
+[[allowlists]]
+description = "GMPO example's numeric clipping parameter"
+condition = "AND"
+paths = ['''^vendor/verl/examples/gmpo_trainer/README\.md$''']
+regexTarget = "match"
+regexes = ['''^key configurations are:\s*```\s*clip_ratio_low=0\.4$''']

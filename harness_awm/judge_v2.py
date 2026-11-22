@@ -1,11 +1,12 @@
-"""Judge V2 contracts and deterministic aggregation. No reward calculation."""
+"""Judge V2 assessments; externally admitted rewards are added by reward_policy."""
 import copy
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .io import digest
 from .rubric_judge import decide_item, validate_evidence
+from .reward_values import COMPOSITE_VERSION, PROVISIONAL_REWARD, TERMINAL_REWARDS, VERSION as REWARD_VERSION, validate_reward_value
 
 
 VERSION = "awm-judge-v2"
@@ -99,12 +100,45 @@ class JudgeResult(StrictModel):
     errors: list[str]
     versions: dict
     usage: dict
-    reward: None = None
-    reward_valid: Literal[False] = False
+    reward: int | float | None = None
+    reward_valid: bool = False
+    reward_policy: str | None = None
+    reward_admission_id: str | None = None
+    reward_exclusion: str | None = None
+    reward_components: dict | None = None
+    trajectory_quality: dict | None = None
     official_pass: None = None
     outcome_classification: None = None
     test_only: bool = False
     attempt: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def reward_type(cls, value):
+        if isinstance(value, dict):
+            validate_reward_value(value.get("reward"), value.get("reward_policy"))
+        return value
+
+    @model_validator(mode="after")
+    def reward_contract(self):
+        if self.reward_valid:
+            expected = TERMINAL_REWARDS.get((self.business_label, self.task_status))
+            if self.reward_policy == COMPOSITE_VERSION:
+                from .composite_reward import components_for, reward_from_components
+                components = components_for(self.model_dump())
+                if components != self.reward_components:
+                    raise ValueError("invalid_composite_reward_components")
+                expected = reward_from_components(components, self.business_label, self.task_status)
+            if (self.reward is None or self.reward != expected or self.test_only
+                    or not self.evaluation_valid or self.evaluation_status != "valid"
+                    or self.sample_validity.get("status") != "valid" or self.errors
+                    or any(x.get("scope") == "required" for x in self.rubric_issues)
+                    or not self.reward_policy or not self.reward_admission_id or self.reward_exclusion
+                    or (self.reward == PROVISIONAL_REWARD and self.reward_policy not in {REWARD_VERSION, COMPOSITE_VERSION})):
+                raise ValueError("invalid_admitted_reward")
+        elif self.reward is not None:
+            raise ValueError("invalid_reward_must_be_null")
+        return self
 
 
 class RubricError(ValueError):
@@ -192,8 +226,8 @@ def validate_assessment(value, normalized, evidence):
             def execution_fact(eid):
                 record = evidence[eid]
                 if record["kind"] == "evidence_page":
-                    return record["content"]["source_kind"] in {"trajectory", "final_answer", "tool_result", "query"}
-                return record["kind"] in {"trajectory", "final_answer", "tool_result", "query"}
+                    return record["content"]["source_kind"] in {"trajectory", "final_answer", "tool_result", "query", "state_validation"}
+                return record["kind"] in {"trajectory", "final_answer", "tool_result", "query", "state_validation"}
             if p["established"] and not any(execution_fact(e) for e in p["evidence_ids"]):
                 raise ValueError("proof_without_execution_evidence")
         state = decide_item(satisfied=row["satisfied"]["established"], violated=row["violated"]["established"])

@@ -47,12 +47,19 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def db_check(path):
+def db_check(path, *, foreign_keys=True):
     with sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True) as db:
         if db.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
             raise ValueError("database_integrity_failed")
-        if db.execute("PRAGMA foreign_key_check").fetchall():
+        if foreign_keys and db.execute("PRAGMA foreign_key_check").fetchall():
             raise ValueError("database_foreign_keys_failed")
+
+
+def foreign_key_violations(path):
+    """Logical violations are observable state, distinct from unreadable storage."""
+    with sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True) as db:
+        return [dict(zip(("table", "rowid", "parent", "foreign_key_id"), row))
+                for row in db.execute("PRAGMA foreign_key_check")]
 
 
 def db_fingerprint(path):
@@ -69,7 +76,7 @@ def db_fingerprint(path):
         return digest({"schema": schema, "tables": tables})
 
 
-def snapshot(source, target):
+def snapshot(source, target, *, foreign_keys=True):
     source, target = Path(source).resolve(), Path(target).resolve()
     if source == target or target.exists():
         raise ValueError("snapshot_destination_must_be_new")
@@ -77,7 +84,7 @@ def snapshot(source, target):
     with sqlite3.connect(source.as_uri() + "?mode=ro", uri=True) as src:
         with sqlite3.connect(target) as dst:
             src.backup(dst)
-    db_check(target)
+    db_check(target, foreign_keys=foreign_keys)
     return file_hash(target)
 
 
@@ -116,7 +123,7 @@ class Recorder:
 def seal(folder):
     folder = Path(folder)
     paths = [p for p in folder.rglob("*") if p.is_file() and
-             p.relative_to(folder).parts[0] in {"initial.db", "final.db", "events.jsonl", "trajectory.json", "model_turns", "blobs", "task.json", "audit", "tool_catalog.json", "protocol.json", "termination_report.json"}]
+             p.relative_to(folder).parts[0] in {"initial.db", "final.db", "events.jsonl", "trajectory.json", "model_turns", "blobs", "task.json", "audit", "tool_catalog.json", "protocol.json", "termination_report.json", "skill_selection.json"}]
     result = {str(p.relative_to(folder)): file_hash(p) for p in sorted(paths)}
     write_json(folder / "evidence_seal.json", result)
     return result

@@ -1,0 +1,6 @@
+{
+  "bank_path": "bank.json",
+  "bank_sha256": "e206e99591bf5acd097ee79966d4d7bc6ae97aa299d29752d8f666af0d12407a",
+  "max_context_bytes": 5000,
+  "top_k": 3
+}

@@ -1,0 +1,30 @@
+{
+  "protocol_id": "awm-single-json-v2",
+  "purpose": "development",
+  "actor": "training",
+  "judge": "api",
+  "judge_protocol": "rubric_v2",
+  "isolation": "landlock",
+  "reward_admissions": null,
+  "judge_api": {
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-6-luna",
+    "api_key_env": "OPENAI_API_KEY",
+    "reasoning_effort": "none",
+    "temperature": 0,
+    "context_limit": 128000,
+    "timeout": 180
+  },
+  "max_physical_requests": null,
+  "max_total_tokens": null,
+  "context_limit": 32768,
+  "max_output_tokens": 2048,
+  "max_turns": 32,
+  "max_tool_calls": 32,
+  "seed": 20261106,
+  "runtime_python": "/root/awm-agent-train/runs/qwen35_base_setup/venv/bin/python",
+  "judge_concurrency": 2,
+  "judge_rpm": 5000,
+  "judge_tpm": 2000000,
+  "reward_policy": "judge-v2-cst-v1"
+}

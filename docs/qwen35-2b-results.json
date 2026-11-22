@@ -1,0 +1,151 @@
+{
+  "model": "Qwen3.5-2B",
+  "metric": "Confirmed successes divided by all planned tasks in the split, including unscored tasks.",
+  "data": {
+    "seed": 20261106,
+    "sft_trajectories": 758,
+    "sft_supervised_turns": 6714,
+    "grpo_train": 2746,
+    "validation": 589,
+    "test": 588
+  },
+  "sft": {
+    "epochs": 2,
+    "effective_batch_size": 64,
+    "microbatch_token_limit": 122880,
+    "validation": {
+      "lr1e-5-epoch1": {
+        "confirmed": 80,
+        "planned": 589,
+        "scored": 588,
+        "success_percent": 13.58
+      },
+      "lr1e-5-epoch2": {
+        "confirmed": 210,
+        "planned": 589,
+        "scored": 585,
+        "success_percent": 35.65
+      },
+      "lr2e-5-epoch1": {
+        "confirmed": 25,
+        "planned": 589,
+        "scored": 588,
+        "success_percent": 4.24
+      },
+      "lr2e-5-epoch2": {
+        "confirmed": 198,
+        "planned": 589,
+        "scored": 588,
+        "success_percent": 33.62
+      }
+    },
+    "selected": "lr1e-5-epoch2",
+    "test": {
+      "confirmed": 214,
+      "planned": 588,
+      "scored": 573,
+      "success_percent": 36.39
+    }
+  },
+  "grpo": {
+    "candidates_per_group": 4,
+    "sampled_groups": 400,
+    "optimizer_updates": 163,
+    "validation_by_sampled_group": {
+      "100": {
+        "confirmed": 205,
+        "planned": 589,
+        "scored": 574,
+        "success_percent": 34.8
+      },
+      "200": {
+        "confirmed": 229,
+        "planned": 589,
+        "scored": 581,
+        "success_percent": 38.88
+      },
+      "300": {
+        "confirmed": 205,
+        "planned": 589,
+        "scored": 579,
+        "success_percent": 34.8
+      },
+      "400": {
+        "confirmed": 197,
+        "planned": 589,
+        "scored": 572,
+        "success_percent": 33.45
+      }
+    },
+    "selected": "checkpoint-200",
+    "updates_at_selected_checkpoint": 86,
+    "test": {
+      "confirmed": 197,
+      "planned": 588,
+      "scored": 567,
+      "success_percent": 33.5
+    }
+  },
+  "skillrl_inference": {
+    "checkpoint": "checkpoint-200",
+    "method": "Frozen weights and a rule-extracted external skill bank",
+    "archive_groups": 241,
+    "source_trajectories": 964,
+    "workflows": 171,
+    "failure_reminders": 2,
+    "bank_sha256": "e206e99591bf5acd097ee79966d4d7bc6ae97aa299d29752d8f666af0d12407a",
+    "validation": {
+      "confirmed": 275,
+      "planned": 589,
+      "scored": 537,
+      "success_percent": 46.69,
+      "incorrect": 262,
+      "undetermined": 47,
+      "inference_incomplete": 5,
+      "tasks_with_retrieval_match": 147
+    },
+    "judge": "deepseek-flash",
+    "matched_no_skill_control": false,
+    "paired_effect_percentage_points": null,
+    "test": null
+  },
+  "judge_protocol_note": "Historical SFT used the OpenAI evaluation route. Historical GRPO used DeepSeek with OpenAI fallback. The SkillRL validation batch was judged separately.",
+  "sources": {
+    "split": {
+      "file": "data/training_split_20261106_v1/summary.json",
+      "sha256": "76ec55aead8d03fa5df281a4c5540eb1a0f611fffc36dad25b5992549e173d78"
+    },
+    "sft_plan": {
+      "file": "runs/qwen35_sft_selection_20261109_v2/plan.json",
+      "sha256": "5020bf9768d2aad653f8cb5b5d101fbaf3dc4d42dfb84fc9a55e69c2b8551bac"
+    },
+    "sft_validation": {
+      "file": "runs/validation_comparison_20261110/summary.json",
+      "sha256": "787d01b76b8d09204db48e724e1e4302b6972a7d161006231166d8bbe9b01b91"
+    },
+    "sft_test": {
+      "file": "runs/sft_best_test_20261110_v1/summary.json",
+      "sha256": "48fa06af11d3985d04a7de78d0d8a1def28a2e48819ac5193ad2c0ba0fba741b"
+    },
+    "grpo_training": {
+      "file": "runs/grpo_resume_300_20261114_v1/persistent/records/summary.json",
+      "sha256": "6c05fd3b24ef8b17d81db37b1f9766d70523bc252bb6b8e537b6e1a294bf7ba5"
+    },
+    "grpo_selection": {
+      "file": "runs/grpo_checkpoint200_test_20261114_v1/selection.json",
+      "sha256": "4cd6152f12e76d14f168d4807d8b46896bd10b8df0d4a24e0841a4799cd5113b"
+    },
+    "grpo_test": {
+      "file": "runs/grpo_checkpoint200_test_20261114_v1/summary.json",
+      "sha256": "4b8b14fffccd0a2a587ed120223477f7d786ae98efaa13f2fd1cfb43f1263779"
+    },
+    "skill_build": {
+      "file": "delivery/skillrl/build_report.json",
+      "sha256": "74e72d9893507414277e7e4045494322639f1ab43b7fa8ac347b906be0d2d1b2"
+    },
+    "skill_validation": {
+      "file": "runs/skill_today_deepseek_judge_20261117_v1/summary.json",
+      "sha256": "86400a5858474e95e5731a2270399c050a42be574c60c3a595261f8f745c1f2d"
+    }
+  }
+}

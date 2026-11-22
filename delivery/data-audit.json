@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "split_counts": {
+    "sft_trajectories": 758,
+    "grpo_train": 2746,
+    "validation": 589,
+    "test": 588
+  },
+  "source_files": 27443,
+  "sft_trajectories": 758,
+  "sft_turn_samples": 6714,
+  "masked_turns": 357,
+  "max_tokens": 17743,
+  "weights_loaded": false,
+  "judge_requests": 0
+}

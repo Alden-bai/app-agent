@@ -8,6 +8,7 @@ from .backend import api_request
 from .io import canonical, digest, file_hash, now, read_json, write_json
 from .judge_evidence import EvidenceStore, TOOL_HELP, model_view, VERSION as EVIDENCE_VERSION
 from .judge_inputs import seed_evidence, strict_json, verify_input
+from .judge_output import parse_judge_output
 from .judge_v2 import (VERSION, Assessment, JudgeResult, QueryAction, RubricError,
                        aggregate, error_result, validate_assessment)
 
@@ -28,15 +29,26 @@ sample_validity按实际运行完整性及相关环境事实判断。仅有明�
 只输出严格JSON，选择query或finish动作，符合给定schema。每个rubric条目恰好一次；证据ID必须来自程序注册表。上下文中的历史判分不是事实依据。"""
 
 
+PROMPT += """
+state_validation记录区分可读取数据库中的外键业务违例与物理损坏。执行前状态通过校验、执行后产生非法关联，不得仅因外键错误就认定样本无效或免除模型责任。结合真实schema、动作、错误反馈和最终状态核对相关必要义务；确认非法关联未修复且违反必要义务时判fail，不留unknown。已成功纠正则按最终结果判断。不能仅因工具曾报错就认定最终失败，也不能把未收到的事后反馈当作模型忽视的反馈。
+"""
+
+
 def implementation_hashes():
     root = Path(__file__).parent
     return {name: file_hash(root / name) for name in (
-        "judge_v2.py", "judge_evidence.py", "judge_inputs.py", "judge_runtime.py", "rubric_judge.py", "backend.py", "contracts.py")}
+        "judge_v2.py", "judge_evidence.py", "judge_inputs.py", "judge_runtime.py", "rubric_judge.py",
+        "backend.py", "contracts.py", "judge_output.py", "judge_recovery.py", "environment.py", "runner_v2.py", "io.py")}
 
 
 def config_hash(config):
-    return digest({"api": config.judge_api.model_dump(), "settings": config.judge_v2.model_dump(),
-                   "backend": config.judge, "prompt": digest(PROMPT), "implementation": implementation_hashes()})
+    identity = {"api": config.judge_api.model_dump(), "settings": config.judge_v2.model_dump(),
+                "backend": config.judge, "prompt": digest(PROMPT), "implementation": implementation_hashes()}
+    from .reward_values import COMPOSITE_VERSION
+    if config.reward_policy == COMPOSITE_VERSION:
+        from .trajectory_quality import implementation_identity
+        identity["composite_reward"] = implementation_identity()
+    return digest(identity)
 
 
 def call_usage(budget, prefix):
@@ -120,7 +132,7 @@ async def evaluate_input(bundle, config, budget, semaphore, output):
                 try:
                     if choice["finish_reason"] != "stop":
                         raise ValueError("incomplete_model_output:" + str(choice["finish_reason"]))
-                    value = strict_json(content)
+                    value = parse_judge_output(content, call_dir / "normalization.json")
                     if value.get("action") == "query":
                         action = QueryAction.model_validate(value)
                         known_items = {r["id"] for r in normalized["items"]}
@@ -182,7 +194,9 @@ async def evaluate_input(bundle, config, budget, semaphore, output):
                         row["unknown"]["kind"] = "evidence_error"
                 decision = aggregate(candidate)
                 write_json(attempt / ("review_assessment.json" if review else "assessment.json"), candidate)
-                if (decision["business_label"] == "unknown" or settings.review_all_decisions) and decision["evaluation_status"] not in {"invalid_sample", "rubric_error"} and not review and not limit_hit:
+                soft_unknown = config.reward_policy == "judge-v2-cst-v1" and any(
+                    row["requirement_level"] == "quality" and row["status"] == "unknown" for row in candidate["items"])
+                if (decision["business_label"] == "unknown" or soft_unknown or settings.review_all_decisions) and decision["evaluation_status"] not in {"invalid_sample", "rubric_error"} and not review and not limit_hit:
                     review = True
                     # A fresh bounded context; no official or historical labels.
                     messages = [{"role": "system", "content": system}, {"role": "user", "content": canonical({
@@ -201,6 +215,13 @@ async def evaluate_input(bundle, config, budget, semaphore, output):
                             row["unknown"]["kind"] = "budget_exhausted"
                     write_json(attempt / ("review_assessment.json" if review else "assessment.json"), candidate)
                     decision = aggregate(candidate, forced_error="query_round_budget_exhausted")
+                if config.reward_policy == "judge-v2-cst-v1" and (limit_hit or rounds >= settings.query_rounds or review_queried):
+                    for row in candidate["items"]:
+                        if (row["requirement_level"] == "quality" and row["unknown"]
+                                and row["unknown"]["kind"] in {"evidence_gap", "not_investigated"}):
+                            row["unknown"]["kind"] = "budget_exhausted"
+                    # Keep the hard business label; unresolved soft evidence withholds CST reward separately.
+                    decision["items"] = candidate["items"]
                 outcome.update(decision)
                 break
         except Exception as exc:

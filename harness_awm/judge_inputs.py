@@ -99,6 +99,10 @@ def seed_evidence(bundle, store):
     for row in raw:
         ev = store.add("tool_result", row)
         tool_ids.setdefault(row["turn"], []).append(ev["id"])
+    # Preserve illegal post-action state as evidence, never repair it for scoring.
+    for event in events:
+        if event["event_type"] in {"state_validation_feedback", "snapshot_created"}:
+            store.add("state_validation", event)
     compact = []
     for step in trace["trajectory"]:
         row = {k: v for k, v in step.items() if k != "tool_response"}
@@ -125,7 +129,7 @@ def seed_evidence(bundle, store):
     return runtime
 
 
-def input_from_manifest(episode, task, manifest_path):
+def sources_from_manifest(task, manifest_path):
     root = Path(manifest_path).resolve()
     manifest = load_json(root)
     if manifest.get("schema_version") != "awm-judge-input-manifest-v2":
@@ -138,4 +142,8 @@ def input_from_manifest(episode, task, manifest_path):
         if file_hash(p) != ref["sha256"]:
             raise ValueError("judge_manifest_source_hash_mismatch:" + name)
         values[name] = load_json(p)
-    return prepare_input(episode, **values)
+    return values
+
+
+def input_from_manifest(episode, task, manifest_path):
+    return prepare_input(episode, **sources_from_manifest(task, manifest_path))
