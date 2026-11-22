@@ -1,10 +1,44 @@
 # App Agent
 
-[中文](README.md) · **English**
+<div align="center">
 
-App Agent trains and evaluates tool-using agents in AWM's simulated applications. Qwen3.5-2B interacts with a separate MCP environment for each task. Judge V2 evaluates the task requirements against the tool trace and final database state. The experiments below cover supervised fine-tuning (SFT), online GRPO and skill retrieval with frozen model weights.
+[简体中文](README.md) · **English**
 
-## Qwen3.5-2B results
+Training Qwen3.5-2B to discover tools and complete multi-step tasks in simulated applications with their own databases.
+
+[Results](#results) · [Quick start](#quick-start) · [Code and documentation](#code-and-documentation)
+
+</div>
+
+![Qwen3.5-2B workflow. SFT uses 6,714 examples, online GRPO samples four trajectories per task, then a frozen model retrieves from a bank of 173 skills.](docs/images/training-workflow-en.png)
+
+## The AWM environment
+
+Each task starts a separate Agent World Model (AWM) application with its own SQLite database. The model sees a task and a tool index, looks up tool arguments as needed, and submits one JSON action per turn. Each tool observation informs the next action. After the model calls `finish`, Judge V2 checks the tool trace and final database state against the task rubric. [Upstream AWM](https://github.com/Snowflake-Labs/agent-world-model) · [Interaction protocol](harness_awm/protocol_v2.py)
+
+For example, a membership-management calibration task asks the agent to update the current account’s phone number, add the `corporate` tag and preserve the existing tags. Changing the phone number completes only part of the task. The judge can inspect the final record for the tags and the trace for the actions taken. [Calibration tasks](configs/training/grpo-calibration-controls.json)
+
+```mermaid
+flowchart LR
+    task["Task and tool index"] --> actor["Qwen3.5-2B"]
+    actor -->|"Look up or call a tool"| app["AWM application · SQLite"]
+    app -->|"Tool observation"| actor
+    app -->|"Tool trace and final database state"| judge["Judge V2"]
+    rubric["Task rubric"] --> judge
+```
+
+## Training and evaluation
+
+| Stage | Experiment | Code |
+|---|---|---|
+| Base-model evaluation | Run a split in BF16 with greedy decoding and record each task outcome. | [Evaluation entry point](harness_awm/training/evaluate.py) |
+| Supervised fine-tuning (SFT) | Train on reviewed trajectories. Earlier messages supply context and only the current assistant response contributes to the loss. | [SFT trainer](harness_awm/training/sft.py) |
+| Online GRPO | Sample four trajectories for the same task. Use within-group reward differences to update the policy and compare checkpoints on validation. | [veRL training entry point](harness_awm/training/verl/__main__.py) |
+| SkillRL-style retrieval | Extract workflows and failure reminders from training trajectories. Retrieve them by task at inference time with the model weights frozen. | [Skill extraction](harness_awm/skillbank_build.py) · [Paired evaluation](harness_awm/training/skill_eval.py) |
+
+The GRPO training reward is `R = C × [1 − 0.05 × (1 − S) − 0.15 × (1 − T)]`. Completion `C` is 1 when all hard requirements pass, 0 when any fails, and 0.3 when review leaves a hard requirement unresolved with no confirmed failure. The soft-requirement score `S` and trajectory-quality score `T` determine the reward discount. [Judge V2 scoring rules (Chinese)](docs/judge_v2_zh.md)
+
+## Results
 
 | Model and configuration | Validation (589 tasks) | Held-out test (588 tasks) |
 |---|---:|---:|
@@ -12,11 +46,15 @@ App Agent trains and evaluates tool-using agents in AWM's simulated applications
 | GRPO after 200 sampled groups | **229/589 (38.88%)** | 197/588 (33.50%) |
 | GRPO-200 with SkillRL-style retrieval | **275/589 (46.69%)** | Unevaluated |
 
-Success rate counts confirmed successes over all tasks in the split. The validation runs obtained 585, 581 and 537 valid judgments respectively. The two test runs obtained 573 and 567. Provisional and unscored outcomes stay in the denominator. Historical SFT used an OpenAI judge. GRPO used DeepSeek with OpenAI fallback. GRPO scored higher on validation and lower on the held-out test. [Checkpoint results, scoring coverage and source hashes](docs/qwen35-2b-results.json)
+Compared with initial SFT, GRPO completed 19 more validation tasks (**+3.23 percentage points**) and 17 fewer held-out test tasks. Success rate is the number of confirmed successes divided by the total number of tasks, including those with provisional or missing judgments. The three validation runs obtained 585, 581 and 537 valid judgments, and the two test runs obtained 573 and 567. Historical SFT used an OpenAI judge. GRPO used DeepSeek with OpenAI fallback. [Checkpoint results, scoring coverage and source hashes](docs/qwen35-2b-results.json)
 
 The skill run held GRPO-200 weights fixed and used a separate `deepseek-flash` scoring pass. Of 589 tasks, 275 were confirmed successes, 262 were confirmed failures, 47 had indeterminate judgments and 5 had incomplete inference. The batch lacked a matched run with skills disabled, so the effect attributable to skills remains unmeasured.
 
-## 1. Install and prepare the data
+![Validation checkpoint selection. SFT reaches 35.65% at epoch 2 with a learning rate of 1e-5. GRPO scores 34.80%, 38.88%, 34.80% and 33.45% at sampled groups 100, 200, 300 and 400.](docs/images/checkpoint-selection-en.png)
+
+Among four SFT candidates, epoch 2 at `1e-5` reached 210 confirmed successes. GRPO peaked at 229 after 200 sampled groups and 86 optimizer updates, then fell to 197 at group 400. Each stage selected its checkpoint on validation before evaluating it on the held-out test set.
+
+## Quick start
 
 Run the steps in Bash from the repository root after cloning. The harness requires Python 3.12. Training also needs `uv`, a supported NVIDIA GPU and driver, Linux with Landlock support, and access to a judge API. Use a fresh output directory for each run.
 
@@ -28,6 +66,11 @@ agent-world-model/.venv/bin/python -m pip install -e ./agent-world-model -e '.[t
 cp .env.example .env
 agent-world-model/.venv/bin/python -m harness_awm --help
 ```
+
+Run the four steps in order in the same Bash session so they share the environment variables and the `score` function. Replaying the historical results also requires the frozen inputs listed in step 1.
+
+<details>
+<summary><strong>1. Prepare the model, frozen data and judge configuration</strong></summary>
 
 Set your judge credentials in the local `.env`. SFT uses the CUDA 12.8 training dependencies. Step 3 creates a separate veRL/vLLM environment for GRPO. The download script checks the Qwen3.5-2B weights and tokenizer against the repository's model lock.
 
@@ -69,7 +112,10 @@ score() {
 }
 ```
 
-## 2. Train and select the SFT checkpoint
+</details>
+
+<details>
+<summary><strong>2. Train SFT and select a checkpoint</strong></summary>
 
 The 758 retained trajectories contained 7,071 turns. Masking loss on 357 responses left 6,714 supervised examples. Each example supervises the current assistant response and retains earlier actions as context. Train each learning rate from the original base model for two epochs with an effective batch size of 64. Save one checkpoint per epoch.
 
@@ -94,7 +140,10 @@ BEST_SFT="$WORK/sft-1e-5/checkpoint-210"
 score test "$BEST_SFT" "$WORK/test-sft"
 ```
 
-## 3. Run online GRPO
+</details>
+
+<details>
+<summary><strong>3. Run online GRPO and evaluate the selected checkpoint</strong></summary>
 
 The historical single-GPU run used veRL, vLLM and the CUDA 13 `local-sdpa` profile. Calibrate the judge on two training control tasks, then bind the original task, rubric, environment and tool hashes for every task in the training pool. Calibration calls your configured judge. [veRL environment and reward calibration (Chinese)](docs/verl_training_zh.md)
 
@@ -133,7 +182,10 @@ BEST_GRPO="$WORK/checkpoints/group_step_200/actor/huggingface"
 score test "$BEST_GRPO" "$WORK/test-grpo"
 ```
 
-## 4. Evaluate SkillRL-style retrieval
+</details>
+
+<details>
+<summary><strong>4. Build the skill bank and evaluate SkillRL-style inference</strong></summary>
 
 The rule-based extractor derived 171 tool workflows and two failure reminders from 241 archived `grpo_train` groups containing 964 candidate trajectories across 103 skill-covered scenarios. Retrieval uses the task text. Workflows must also match the scenario, schema and available tools. Each task receives at most three skills within 5,000 UTF-8 bytes. Retrieval matched 147 of the 589 validation tasks. Model weights stay fixed. [Frozen skill bank](delivery/skillrl/bank.json) · [Skill index](delivery/skillrl/SKILLS.md)
 
@@ -154,8 +206,15 @@ Alternatively, use the frozen bank in this repository. `prepare_delivery_skills.
   --split validation --limit 0 --output "$WORK/skill-paired" --execute
 ```
 
-## Further reading
+</details>
 
-[Harness usage (Chinese)](docs/harness_readme_zh.md) · [Judge V2 scoring (Chinese)](docs/judge_v2_zh.md) · [Base-model evaluation (Chinese)](docs/baseline_evaluation_zh.md) · [Training setup and SwanLab (Chinese)](docs/training_setup_zh.md)
+## Code and documentation
 
-The separate Qwen3.5-27B plan targets one 8×A100 node and 2,000 GRPO tasks. The results on this page come from the 2B experiment. [27B handoff (Chinese)](delivery/README_交接说明.md) · [8×A100 run plan (Chinese)](delivery/nioflow/README.md)
+| Topic | Where to start |
+|---|---|
+| Running tools, replaying tasks and inspecting evidence | [AWM harness (Chinese)](docs/harness_readme_zh.md) · [Judge V2 scoring (Chinese)](docs/judge_v2_zh.md) |
+| Preparing data, training and selecting checkpoints | [Base-model evaluation (Chinese)](docs/baseline_evaluation_zh.md) · [Training setup and SwanLab (Chinese)](docs/training_setup_zh.md) · [SFT selection (Chinese)](docs/sft_selection_zh.md) · [GRPO training (Chinese)](docs/verl_training_zh.md) |
+| Inspecting the skill bank and reproducing retrieval | [Frozen skill index](delivery/skillrl/SKILLS.md) · [Skill inference and paired evaluation (Chinese)](docs/skill_inference_zh.md) |
+| Checking the figures | [Qwen3.5-2B results, scoring coverage and source hashes](docs/qwen35-2b-results.json) |
+
+The separate Qwen3.5-27B plan targets one 8×A100 node and 2,000 GRPO training tasks. The figures on this page use Qwen3.5-2B runs. [27B handoff (Chinese)](delivery/README_交接说明.md) · [8×A100 run plan (Chinese)](delivery/nioflow/README.md)

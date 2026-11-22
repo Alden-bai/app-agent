@@ -1,10 +1,44 @@
 # App Agent
 
-**中文** · [English](README.en.md)
+<div align="center">
 
-App Agent 用 AWM 的模拟应用训练和评测工具调用智能体。Qwen3.5-2B 在每道题的独立 MCP 环境里执行多轮操作，Judge V2 根据任务要求、工具轨迹和数据库终态判分。下面记录了从监督微调（SFT）、在线 GRPO 到冻结模型技能检索的实验。
+**简体中文** · [English](README.en.md)
 
-## Qwen3.5-2B 实测结果
+在有独立数据库的模拟应用中，训练 Qwen3.5-2B 发现工具、执行操作并完成多步任务。
+
+[实验结果](#实验结果) · [快速开始](#快速开始) · [代码与文档](#代码与文档)
+
+</div>
+
+![Qwen3.5-2B 先用 6,714 个样本做 SFT，再用每题 4 条轨迹做在线 GRPO，最后冻结权重，从 173 条技能中按题检索。](docs/images/training-workflow-zh.png)
+
+## AWM 环境
+
+每道题启动一个独立的 Agent World Model（AWM）应用和 SQLite 数据库。模型先看到任务和工具索引，按需查询工具参数，每轮提交一个 JSON 动作，再根据工具返回的观察决定下一步。模型调用 `finish` 后，Judge V2 对照任务评分规则，结合工具轨迹和数据库终态评估完成情况。[AWM 上游项目](https://github.com/Snowflake-Labs/agent-world-model) · [交互协议](harness_awm/protocol_v2.py)
+
+例如，会员管理校准题要求更新当前账号的电话号码、添加 `corporate` 标签，同时保留已有标签。改对电话号码只满足其中一项要求。Judge 可以从最终账号记录核对标签，从工具轨迹检查模型执行了哪些操作。[校准任务](configs/training/grpo-calibration-controls.json)
+
+```mermaid
+flowchart LR
+    task["任务指令与工具索引"] --> actor["Qwen3.5-2B"]
+    actor -->|"查询或调用工具"| app["AWM 模拟应用 · SQLite"]
+    app -->|"返回观察"| actor
+    app -->|"工具轨迹与数据库终态"| judge["Judge V2"]
+    rubric["任务评分规则"] --> judge
+```
+
+## 训练与评测
+
+| 阶段 | 方法 | 代码入口 |
+|---|---|---|
+| 基模评测 | 用 BF16 和贪心解码运行指定划分，记录逐题完成情况。 | [评测入口](harness_awm/training/evaluate.py) |
+| 监督微调（SFT） | 用审核过的轨迹训练。历史消息作为上下文，只对当前助手回复计算损失。 | [SFT 训练](harness_awm/training/sft.py) |
+| 在线 GRPO | 同一任务采样四条轨迹，用组内奖励差异更新策略，定期在验证集比较检查点。 | [veRL 训练入口](harness_awm/training/verl/__main__.py) |
+| SkillRL 风格的技能检索 | 从训练轨迹提取工作流和失败提醒。推理时按任务检索，模型权重保持冻结。 | [技能提取](harness_awm/skillbank_build.py) · [配对评测](harness_awm/training/skill_eval.py) |
+
+GRPO 的训练奖励为 `R = C × [1 − 0.05 × (1 − S) − 0.15 × (1 − T)]`。完成度 `C` 取决于硬要求。全部通过记 1，任何一项明确失败记 0，其余经复核仍无法判定的情况记 0.3。软要求得分 `S` 和轨迹质量 `T` 决定奖励的折扣幅度。[Judge V2 评分细则](docs/judge_v2_zh.md)
+
+## 实验结果
 
 | 模型与设置 | 验证集（589 题） | 独立测试集（588 题） |
 |---|---:|---:|
@@ -12,11 +46,15 @@ App Agent 用 AWM 的模拟应用训练和评测工具调用智能体。Qwen3.5-
 | GRPO，第 200 个采样组 | **229/589（38.88%）** | 197/588（33.50%） |
 | GRPO-200 + SkillRL 推理增强 | **275/589（46.69%）** | 未评测 |
 
-成功率按确认成功数除以该划分全部题数计算。有效评分数在验证集上分别是 585、581、537，在测试集上分别是 573、567。暂定通过和缺失评分都留在分母中。历史 SFT 使用 OpenAI 判分，GRPO 优先使用 DeepSeek，必要时回退到 OpenAI。GRPO 的验证成绩更高，独立测试成绩更低。[各候选成绩、评分覆盖与来源哈希](docs/qwen35-2b-results.json)
+与初次 SFT 相比，GRPO 在验证集多完成 19 题（**+3.23 个百分点**），在独立测试集少完成 17 题。成功率按确认成功数除以该划分全部题数计算，暂定通过和缺失评分都留在分母中。三次验证评测的有效评分数分别为 585、581、537，两次测试评测分别为 573、567。历史 SFT 使用 OpenAI 判分，GRPO 优先使用 DeepSeek，必要时回退到 OpenAI。[各候选成绩、评分覆盖与来源哈希](docs/qwen35-2b-results.json)
 
 技能实验固定 GRPO-200 权重，单独使用 `deepseek-flash` 判分。589 题中有 275 题确认成功、262 题确认失败、47 题无法判定、5 题未完成推理。该批次缺少同条件关闭技能的对照，技能本身带来的净提升仍待测量。
 
-## 1. 安装与准备数据
+![验证集选模图。SFT 在学习率 1e-5 的第 2 轮达到 35.65%。GRPO 在第 100、200、300、400 个采样组分别为 34.80%、38.88%、34.80%、33.45%。](docs/images/checkpoint-selection-zh.png)
+
+四个 SFT 候选中，学习率 `1e-5` 的第 2 轮得到 210 次确认成功。GRPO 在第 200 个采样组达到 229 次，此时实际执行了 86 次参数更新。到第 400 组，成功数回落到 197 次。两个阶段都按验证集选定检查点，再评独立测试集。
+
+## 快速开始
 
 从仓库根目录在 Bash 中运行以下步骤。基础工具需要 Python 3.12。训练还需要 `uv`、受支持的 NVIDIA GPU 和驱动、支持 Landlock 的 Linux，以及可用的 Judge API。各阶段使用新的输出目录。
 
@@ -28,6 +66,11 @@ agent-world-model/.venv/bin/python -m pip install -e ./agent-world-model -e '.[t
 cp .env.example .env
 agent-world-model/.venv/bin/python -m harness_awm --help
 ```
+
+下列四步复用环境变量和 `score` 函数，请按顺序在同一个 Bash 会话中运行。复现历史成绩还需要原始冻结数据包，第一步列出了所需输入。
+
+<details>
+<summary><strong>1. 准备模型、冻结数据与 Judge 配置</strong></summary>
 
 在本机 `.env` 填自己的 Judge 密钥。SFT 的训练环境使用 CUDA 12.8 依赖，GRPO 在第 3 步另建 veRL/vLLM 环境。下载脚本按仓库中的模型锁校验 Qwen3.5-2B 权重和 tokenizer。
 
@@ -69,7 +112,10 @@ score() {
 }
 ```
 
-## 2. SFT 训练与选模
+</details>
+
+<details>
+<summary><strong>2. 训练 SFT 并选择检查点</strong></summary>
 
 758 条保留轨迹有 7,071 轮，其中 357 轮屏蔽当前回复的损失，得到 6,714 个训练样本。只监督当前 assistant 回复，历史动作仍作为上下文。两个学习率分别从原始基模训练 2 轮，有效 batch 为 64，每轮保存一次。
 
@@ -94,7 +140,10 @@ BEST_SFT="$WORK/sft-1e-5/checkpoint-210"
 score test "$BEST_SFT" "$WORK/test-sft"
 ```
 
-## 3. 在线 GRPO
+</details>
+
+<details>
+<summary><strong>3. 运行在线 GRPO 并评测验证集胜者</strong></summary>
 
 历史单卡运行使用 veRL、vLLM 和 CUDA 13 的 `local-sdpa` 配置。先用两道训练控制题实测 Judge，再为训练池的每个任务绑定原题、评分规则、环境和工具哈希。校准会调用配置好的 Judge。[veRL 环境与奖励校准](docs/verl_training_zh.md)
 
@@ -133,7 +182,10 @@ BEST_GRPO="$WORK/checkpoints/group_step_200/actor/huggingface"
 score test "$BEST_GRPO" "$WORK/test-grpo"
 ```
 
-## 4. SkillRL 风格的推理增强
+</details>
+
+<details>
+<summary><strong>4. 构建技能库并评测 SkillRL 推理</strong></summary>
 
 从 `grpo_train` 的 241 个封存组、964 条候选轨迹中按规则提炼出 171 条工具工作流和 2 条失败提醒，覆盖 103 个场景。推理时按任务文字检索，工作流还需匹配场景、工具和 schema。每题最多加入 3 条技能、5,000 个 UTF-8 字节。589 道验证题中，147 题有检索命中。整个阶段固定模型权重。[冻结技能库](delivery/skillrl/bank.json) · [技能索引](delivery/skillrl/SKILLS.md)
 
@@ -154,8 +206,15 @@ score test "$BEST_GRPO" "$WORK/test-grpo"
   --split validation --limit 0 --output "$WORK/skill-paired" --execute
 ```
 
-## 更多资料
+</details>
 
-[工具执行与评测](docs/harness_readme_zh.md) · [Judge V2 判分](docs/judge_v2_zh.md) · [基模评测](docs/baseline_evaluation_zh.md) · [训练环境及 SwanLab](docs/training_setup_zh.md)
+## 代码与文档
 
-Qwen3.5-27B 的单机 8×A100 方案使用独立运行配置和 2,000 题 GRPO 计划。本页成绩来自上述 2B 实验。[27B 交接说明](delivery/README_交接说明.md) · [8×A100 运行方案](delivery/nioflow/README.md)
+| 想了解什么 | 从哪里开始 |
+|---|---|
+| 怎样运行工具、回放任务和检查证据 | [AWM 执行与评测](docs/harness_readme_zh.md) · [Judge V2 判分](docs/judge_v2_zh.md) |
+| 怎样准备数据、训练和选择检查点 | [基模评测](docs/baseline_evaluation_zh.md) · [训练环境与 SwanLab](docs/training_setup_zh.md) · [SFT 选模](docs/sft_selection_zh.md) · [GRPO 训练](docs/verl_training_zh.md) |
+| 检索哪些技能、如何复现实验 | [冻结技能索引](delivery/skillrl/SKILLS.md) · [技能推理与配对评测](docs/skill_inference_zh.md) |
+| 怎样核对图表中的数字 | [Qwen3.5-2B 实验汇总、评分覆盖与来源哈希](docs/qwen35-2b-results.json) |
+
+Qwen3.5-27B 的单机 8×A100 方案使用独立配置，计划训练 2,000 道 GRPO 任务。本页图表来自 Qwen3.5-2B 实验。[27B 交接说明](delivery/README_交接说明.md) · [8×A100 运行方案](delivery/nioflow/README.md)
