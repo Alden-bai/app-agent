@@ -46,7 +46,11 @@ The GRPO training reward is `R = C × [1 − 0.05 × (1 − S) − 0.15 × (1 �
 | GRPO after 200 sampled groups | **229/589 (38.88%)** | 197/588 (33.50%) |
 | GRPO-200 with SkillRL-style retrieval | **275/589 (46.69%)** | Unevaluated |
 
-Compared with initial SFT, GRPO completed 19 more validation tasks (**+3.23 percentage points**) and 17 fewer held-out test tasks. Success rate is the number of confirmed successes divided by the total number of tasks, including those with provisional or missing judgments. The three validation runs obtained 585, 581 and 537 valid judgments, and the two test runs obtained 573 and 567. Historical SFT used an OpenAI judge. GRPO used DeepSeek with OpenAI fallback. [Checkpoint results, scoring coverage and source hashes](docs/qwen35-2b-results.json)
+GRPO-200 completed **197/588 held-out test tasks (33.50%)**. The **275/589 (46.69%)** reported for GRPO-200 with SkillRL-style retrieval comes from the validation set. Compared with initial SFT, GRPO completed 19 more validation tasks (**+3.23 percentage points**) and 17 fewer held-out test tasks.
+
+Success rate is the number of confirmed successes divided by the total number of tasks in the split, expressed as a percentage rounded to two decimal places. With 588 held-out test tasks, no whole number of successes yields 39.50% or 47.27% under this rule. [Checkpoint results, scoring coverage and source hashes](docs/qwen35-2b-results.json)
+
+Tasks with provisional or missing judgments still count in the denominator. The three validation runs obtained 585, 581 and 537 valid judgments, and the two held-out test runs obtained 573 and 567. SFT used an OpenAI judge. GRPO used DeepSeek with OpenAI fallback.
 
 The skill run held GRPO-200 weights fixed and used a separate `deepseek-flash` scoring pass. Of 589 tasks, 275 were confirmed successes, 262 were confirmed failures, 47 had indeterminate judgments and 5 had incomplete inference. The batch lacked a matched run with skills disabled, so the effect attributable to skills remains unmeasured.
 
